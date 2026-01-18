@@ -1,6 +1,6 @@
 # URL Configuration for WebSocket project
 # This project ONLY handles WebSocket connections, no REST API endpoints
-
+from django.contrib import admin 
 from django.urls import path
 from django.http import HttpResponse 
 
