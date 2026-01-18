@@ -1,0 +1,20 @@
+# Render.com deployment configuration for WebSocket-only Django project
+# This file tells Render how to build and run the WebSocket server
+
+services:
+  - type: web
+    name: chess-websocket
+    env: python
+    region: oregon  # Choose region closest to your users
+    plan: free  # Free tier (spins down after inactivity)
+    buildCommand: pip install -r requirements.txt
+    startCommand: daphne -b 0.0.0.0 -p $PORT websocket_project.asgi:application
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: DJANGO_SETTINGS_MODULE
+        value: websocket_project.settings
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"

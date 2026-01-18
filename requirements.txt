@@ -1,0 +1,7 @@
+# Minimal requirements for WebSocket-only Django project
+# This project ONLY needs WebSocket support, no database, no REST framework
+
+Django>=4.2,<5.0
+channels>=4.0.0
+channels-redis>=4.1.0
+daphne>=4.0.0
