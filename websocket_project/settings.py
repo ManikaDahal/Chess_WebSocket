@@ -19,25 +19,60 @@ ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
 ]
+CORS_ALLOWED_ORIGINS = [
+    "https://chess-websocket-dor6.onrender.com"
+]
 
 # Application definition
 INSTALLED_APPS = [
-    'django.contrib.admin',  
-    'daphne',  # ASGI server for WebSocket support
-    'django.contrib.contenttypes',
+    'django.contrib.admin', 
     'django.contrib.auth',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'daphne',  # ASGI server for WebSocket support
+    'django.contrib.staticfiles', 
+    'django.contrib.contenttypes',
     'channels',  # Django Channels for WebSocket
-    'call',  # WebSocket consumer app
+    'call', 
+    'rest_framework', # WebSocket consumer app
 ]
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',  # MUST be before auth
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',  # MUST exist
+    'django.contrib.messages.middleware.MessageMiddleware',     # MUST exist
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+
 ]
 
 ROOT_URLCONF = 'websocket_project.urls'
 
-TEMPLATES = []
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
+    },
+]
 
 # ASGI Application for WebSocket support
 ASGI_APPLICATION = 'websocket_project.asgi.application'
@@ -67,8 +102,6 @@ USE_TZ = True
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# CORS settings - Allow connections from your Flutter app and Vercel API
-CORS_ALLOW_ALL_ORIGINS = True  # For development, restrict in production
 
 # Logging for debugging
 LOGGING = {

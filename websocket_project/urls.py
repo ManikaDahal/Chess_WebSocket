@@ -1,8 +1,9 @@
 # URL Configuration for WebSocket project
 # This project ONLY handles WebSocket connections, no REST API endpoints
 from django.contrib import admin 
-from django.urls import path
+from django.urls import path, include
 from django.http import HttpResponse 
+
 
 
 def home(request):
@@ -11,4 +12,6 @@ urlpatterns = [
     # No REST API endpoints - all handled by Vercel deployment
     path('admin/', admin.site.urls),
     path('', home),
+    path('api/',include("call.urls")),
 ]
+
