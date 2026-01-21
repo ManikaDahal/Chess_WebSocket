@@ -38,3 +38,5 @@ class CallConsumer(AsyncWebsocketConsumer):
         # Don't send back to sender
         if self.channel_name != event['sender']:
             await self.send(text_data=json.dumps(event['message']))
+
+
