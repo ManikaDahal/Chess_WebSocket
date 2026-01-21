@@ -1,11 +1,11 @@
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
-from django.contrib.auth.models import User
 from .models import ChatRoom, Message, Notification
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
+        from django.contrib.auth.models import User
         self.room_id = int(self.scope["url_route"]["kwargs"]["room_id"])  # ✅ cast to int
         self.room_group_name = f"chat_{self.room_id}"
         print(f"[DEBUG] Trying to connect to room {self.room_id}")
@@ -50,6 +50,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def save_message(self, user_id, message):
+        from django.contrib.auth.models import User
         try:
              room = ChatRoom.objects.get(id=int(self.room_id))
              user = User.objects.get(id=user_id)
@@ -60,6 +61,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def create_notification(self, sender_id, message):
+        from django.contrib.auth.models import User
         try:
             room = ChatRoom.objects.get(id=int(self.room_id))
             sender = User.objects.get(id=sender_id)
