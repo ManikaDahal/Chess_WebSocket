@@ -6,7 +6,7 @@ from .models import ChatRoom, Message, Notification
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         from django.contrib.auth.models import User
-        self.room_id = int(self.scope["url_route"]["kwargs"]["room_id"])  # ✅ cast to int
+        self.room_id = int(self.scope["url_route"]["kwargs"]["room_id"])  
         self.room_group_name = f"chat_{self.room_id}"
         print(f"[DEBUG] Trying to connect to room {self.room_id}")
         await self.channel_layer.group_add(
@@ -46,6 +46,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             "message": event["message"],
             "user_id": event["user_id"],
+            "room_id":self.room_id
         }))
 
     @database_sync_to_async
