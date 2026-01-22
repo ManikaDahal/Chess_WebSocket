@@ -46,6 +46,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             print(f"[DEBUG] Received and broadcast: {message} from {sender_name}")
 
     async def chat_message(self, event):
+        print("[DEBUG] Sending to frontend:",event)
         await self.send(text_data=json.dumps({
             "message": event["message"],
             "user_id": event["user_id"],
