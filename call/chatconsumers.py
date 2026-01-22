@@ -2,6 +2,7 @@ import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from .models import ChatRoom, Message, Notification
+from .mqtt_utils import notify_user_via_mqtt
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -68,5 +69,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             sender = User.objects.get(id=sender_id)
             for user in room.users.exclude(id=sender_id):
                 Notification.objects.create(user=user, sender=sender, message=message, room=room)
+                # Also notify via MQTT for push notifications
+                notify_user_via_mqtt(user.id, message, sender_id, room.id)
         except Exception as e:
              print(f"[ERROR] create_notification: {e}")
