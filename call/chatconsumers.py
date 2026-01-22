@@ -31,6 +31,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         user_id = data.get("user_id")
 
         if message and user_id:
+            sender_name = await self.get_sender_name(user_id)
             await self.save_message(user_id, message)
             await self.create_notification(user_id, message)
             await self.channel_layer.group_send(
@@ -39,16 +40,27 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "type": "chat_message",
                     "message": message,
                     "user_id": user_id,
+                    "sender_name": sender_name,
                 }
             )
-            print(f"[DEBUG] Received: {text_data}")
+            print(f"[DEBUG] Received and broadcast: {message} from {sender_name}")
 
     async def chat_message(self, event):
         await self.send(text_data=json.dumps({
             "message": event["message"],
             "user_id": event["user_id"],
-            "room_id":self.room_id
+            "sender_name": event.get("sender_name", "Unknown"),
+            "room_id": self.room_id
         }))
+
+    @database_sync_to_async
+    def get_sender_name(self, user_id):
+        from django.contrib.auth.models import User
+        try:
+            user = User.objects.get(id=user_id)
+            return user.username
+        except:
+            return "Unknown"
 
     @database_sync_to_async
     def save_message(self, user_id, message):
