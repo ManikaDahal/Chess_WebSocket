@@ -2,7 +2,7 @@ import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from .models import ChatRoom, Message, Notification
-from .mqtt_utils import notify_user_via_mqtt
+from .mqtt_utils import notify_room_via_mqtt
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -29,11 +29,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
         data = json.loads(text_data)
         message = data.get("message")
         user_id = data.get("user_id")
+        sender_name = data.get("sender_name") or "Unknown"
 
         if message and user_id:
-            sender_name = await self.get_sender_name(user_id)
+            # If sender_name wasn't provided, try to look it up in local DB (though it might be empty on WebSocket server)
+            if sender_name == "Unknown":
+                sender_name = await self.get_sender_name(user_id)
+            
             await self.save_message(user_id, message)
-            await self.create_notification(user_id, message)
+            await self.create_notification(user_id, message, sender_name)
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -75,14 +79,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
        
 
     @database_sync_to_async
-    def create_notification(self, sender_id, message):
+    def create_notification(self, sender_id, message, sender_name):
         from django.contrib.auth.models import User
         try:
             room = ChatRoom.objects.get(id=int(self.room_id))
             sender = User.objects.get(id=sender_id)
             for user in room.users.exclude(id=sender_id):
                 Notification.objects.create(user=user, sender=sender, message=message, room=room)
-                # Also notify via MQTT for push notifications
-                notify_user_via_mqtt(user.id, message, sender_id, room.id)
+            
+            # Notify the whole room via MQTT (testing phase: room-wide)
+            notify_room_via_mqtt(room.id, message, sender_id, sender_name)
         except Exception as e:
              print(f"[ERROR] create_notification: {e}")

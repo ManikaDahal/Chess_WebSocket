@@ -31,14 +31,15 @@ def publish_mqtt_message(topic, message_dict):
     except Exception as e:
         logger.error(f"MQTT: Error publishing message: {e}")
 
-def notify_user_via_mqtt(user_id, message, sender_id, room_id):
+def notify_room_via_mqtt(room_id, message, sender_id, sender_name):
     """
-    Notifies a specific user about a new message via MQTT.
+    Notifies everyone in a specific room about a new message via MQTT.
     """
-    topic = f"chess/user/{user_id}/messages"
+    topic = f"chess/room/{room_id}/messages"
     data = {
         "message": message,
         "user_id": sender_id,
         "room_id": room_id,
+        "sender_name": sender_name,
     }
     publish_mqtt_message(topic, data)
