@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles', 
     'channels',  # Django Channels for WebSocket
+    'rest_framework',  # For history API
     'call',  # WebSocket consumer app
 ]
 
