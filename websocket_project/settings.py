@@ -3,6 +3,7 @@
 # All REST APIs are handled by the main project deployed on Vercel
 
 import os
+import dj_database_url
 from pathlib import Path
 
 # Build paths inside the project
@@ -32,6 +33,7 @@ INSTALLED_APPS = [
     'channels',  # Django Channels for WebSocket
     'rest_framework',  # For history API
     'call',  # WebSocket consumer app
+    'chess_python', # shared user app
 ]
 
 MIDDLEWARE = [
@@ -74,12 +76,31 @@ CHANNEL_LAYERS = {
 
 # Database - Not needed for WebSocket-only service
 # Using SQLite as placeholder (won't be used)
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db_dev.sqlite3',
+# For Vercel deployment, set DATABASE_URL environment variable to your PostgreSQL connection string
+if os.environ.get('DATABASE_URL'):
+    # Production: Use PostgreSQL from DATABASE_URL environment variable
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=os.environ.get('DATABASE_URL'),
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
     }
-}
+else:
+    # Local development: Use SQLite
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql', 
+            'NAME': 'neondb',
+            'USER': 'neondb_owner',
+            'PASSWORD': 'npg_hl4UapeNS9xk',
+            'HOST': 'ep-round-hall-a10d3q1j-pooler.ap-southeast-1.aws.neon.tech',
+            'PORT': '5432',
+            'OPTIONS': {
+                'sslmode': 'require',
+            },
+        }
+    }
 
 # Internationalization
 LANGUAGE_CODE = 'en-us'
@@ -89,6 +110,9 @@ USE_TZ = True
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Custom User Model
+AUTH_USER_MODEL = 'chess_python.CustomUser'
 
 # CORS settings - Allow connections from your Flutter app and Vercel API
 CORS_ALLOW_ALL_ORIGINS = True  # For development, restrict in production
