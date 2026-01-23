@@ -3,6 +3,8 @@ from django.contrib.auth.models import User
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .models import ChatRoom, Message, Notification
+from asgiref.sync import sync_to_async
+from django.db import transaction
 
 @api_view(['GET'])
 def chat_history(request, room_id):
