@@ -1,5 +1,5 @@
 from django.db.models import Count
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .models import ChatRoom, Message, Notification
@@ -9,6 +9,7 @@ from django.db import transaction
 @api_view(['GET'])
 def chat_history(request, room_id):
     """Returns the message history for a specific room."""
+    User = get_user_model()
     try:
         room = ChatRoom.objects.get(id=room_id)
         messages = Message.objects.filter(room=room).order_by('timestamp')
@@ -32,6 +33,7 @@ def chat_history(request, room_id):
 @api_view(['POST'])
 def get_or_create_private_room(request):
     """Gets or creates a private chat room between two users."""
+    User = get_user_model()
     user1_id = request.data.get('user1_id')
     user2_id = request.data.get('user2_id')
     
