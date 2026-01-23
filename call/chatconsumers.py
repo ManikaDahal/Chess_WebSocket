@@ -6,8 +6,8 @@ from .mqtt_utils import notify_room_via_mqtt
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
+        from django.apps import apps
+        User = apps.get_model('chess_python', 'CustomUser')
         self.room_id = int(self.scope["url_route"]["kwargs"]["room_id"])  
         self.room_group_name = f"chat_{self.room_id}"
         print(f"[DEBUG] Trying to connect to room {self.room_id}")
@@ -61,8 +61,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def get_sender_name(self, user_id):
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
+        from django.apps import apps
+        User = apps.get_model('chess_python', 'CustomUser')
         try:
             user = User.objects.get(id=user_id)
             return user.username
@@ -71,8 +71,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def save_message(self, user_id, message):
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
+        from django.apps import apps
+        User = apps.get_model('chess_python', 'CustomUser')
         try:
              room = ChatRoom.objects.get(id=int(self.room_id))
              user = User.objects.get(id=user_id)
@@ -83,8 +83,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def create_notification(self, sender_id, message, sender_name):
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
+        from django.apps import apps
+        User = apps.get_model('chess_python', 'CustomUser')
         try:
             room = ChatRoom.objects.get(id=int(self.room_id))
             sender = User.objects.get(id=sender_id)
