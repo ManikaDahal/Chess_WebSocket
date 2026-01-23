@@ -44,14 +44,22 @@ def get_or_create_private_room(request):
         user1 = User.objects.get(id=user1_id)
         user2 = User.objects.get(id=user2_id)
         
-        # Find a room with exactly these two users
-        rooms = ChatRoom.objects.filter(users=user1).filter(users=user2).annotate(u_count=Count('users')).filter(u_count=2)
+        # Determine the set of users to look for
+        target_users = {user1, user2}
+        target_count = len(target_users) # 1 if self-chat, 2 if separate users
+        
+        # Find a room that contains exactly these users and NO others
+        # We filter for rooms that have user1 AND user2, then check if total count matches
+        rooms = ChatRoom.objects.filter(users=user1).filter(users=user2).annotate(u_count=Count('users')).filter(u_count=target_count)
         
         if rooms.exists():
-            room = rooms.first()
+            # If multiple rooms exist (due to previous bugs), pick the oldest one
+            room = rooms.order_by('created_at').first()
         else:
             room = ChatRoom.objects.create()
-            room.users.add(user1, user2)
+            room.users.add(user1)
+            if user1 != user2:
+                room.users.add(user2)
             room.save()
             
         return Response({"room_id": room.id})
