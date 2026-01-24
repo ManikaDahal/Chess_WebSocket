@@ -109,14 +109,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
         User = apps.get_model('chess_python', 'CustomUser')
         try:
             room = ChatRoom.objects.get(id=int(self.room_id))
-            sender = User.objects.get(id=sender_id)
-            for user in room.users.exclude(id=sender_id):
+            sender = User.objects.get(id=int(sender_id))
+            participants = room.users.exclude(id=sender.id)
+            print(f"[DEBUG] Notifying {participants.count()} participants in room {self.room_id}")
+            for user in participants:
                 Notification.objects.create(user=user, sender=sender, message=message, room=room)
                 # Global notification: Notify the user on their personal topic
-                notify_user_via_mqtt(user.id, self.room_id, message, sender_id, sender_name)
-            
-            # Legacy: Notify the whole room via MQTT (keeping for safety or until removed)
-            # notify_room_via_mqtt(room.id, message, sender_id, sender_name)
+                notify_user_via_mqtt(user.id, self.room_id, message, sender.id, sender_name)
         except Exception as e:
              print(f"[ERROR] create_notification: {e}")
 
