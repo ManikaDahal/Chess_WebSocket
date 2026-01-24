@@ -104,7 +104,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def create_notification(self, sender_id, message, sender_name):
-        from Django.apps import apps
+        from django.apps import apps
         from .mqtt_utils import notify_user_via_mqtt
         User = apps.get_model('chess_python', 'CustomUser')
         try:
