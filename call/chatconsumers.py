@@ -18,6 +18,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.accept()
         print("[DEBUG] Connection accepted")
 
+        # Send history on connect
+        messages = await self.get_history()
+        await self.send(text_data=json.dumps({
+            "type": "history",
+            "messages": messages,
+            "room_id": self.room_id
+        }))
+        print(f"[DEBUG] Sent {len(messages)} history messages to user")
+
 
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(
@@ -95,3 +104,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
             notify_room_via_mqtt(room.id, message, sender_id, sender_name)
         except Exception as e:
              print(f"[ERROR] create_notification: {e}")
+
+    @database_sync_to_async
+    def get_history(self):
+        try:
+            messages = Message.objects.filter(room_id=self.room_id).order_by('created_at')[:50]
+            return [
+                {
+                    "message": m.text,
+                    "user_id": m.sender.id,
+                    "sender_name": m.sender.username,
+                    "room_id": self.room_id
+                }
+                for m in messages
+            ]
+        except Exception as e:
+            print(f"[ERROR] get_history: {e}")
+            return []

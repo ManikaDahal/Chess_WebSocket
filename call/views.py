@@ -67,7 +67,7 @@ def get_or_create_private_room(request):
                 room.users.add(user2)
             room.save()
             
-        return Response({"room_id": room.id})
+        return Response({"room_id": int(room.id)})
     except User.DoesNotExist:
         return Response({"error": "One or both users not found"}, status=404)
     except Exception as e:
