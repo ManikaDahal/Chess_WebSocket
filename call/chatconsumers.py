@@ -37,6 +37,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data):
         data = json.loads(text_data)
+        
+        # Check if it's a history request
+        if data.get("type") == "get_history":
+            messages = await self.get_history()
+            await self.send(text_data=json.dumps({
+                "type": "history",
+                "messages": messages,
+                "room_id": self.room_id
+            }))
+            print(f"[DEBUG] Sent {len(messages)} history messages on request")
+            return
+
         message = data.get("message")
         user_id = data.get("user_id")
         sender_name = data.get("sender_name") or "Unknown"
