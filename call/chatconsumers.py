@@ -104,24 +104,28 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def create_notification(self, sender_id, message, sender_name):
-        from django.apps import apps
+        from Django.apps import apps
+        from .mqtt_utils import notify_user_via_mqtt
         User = apps.get_model('chess_python', 'CustomUser')
         try:
             room = ChatRoom.objects.get(id=int(self.room_id))
             sender = User.objects.get(id=sender_id)
             for user in room.users.exclude(id=sender_id):
                 Notification.objects.create(user=user, sender=sender, message=message, room=room)
+                # Global notification: Notify the user on their personal topic
+                notify_user_via_mqtt(user.id, self.room_id, message, sender_id, sender_name)
             
-            # Notify the whole room via MQTT (testing phase: room-wide)
-            notify_room_via_mqtt(room.id, message, sender_id, sender_name)
+            # Legacy: Notify the whole room via MQTT (keeping for safety or until removed)
+            # notify_room_via_mqtt(room.id, message, sender_id, sender_name)
         except Exception as e:
              print(f"[ERROR] create_notification: {e}")
 
     @database_sync_to_async
     def get_history(self):
         try:
-            messages = Message.objects.filter(room_id=self.room_id).order_by('created_at')[:50]
-            return [
+            # Get the most recent 50 messages, then reverse them so they are in chronological order
+            messages = Message.objects.filter(room_id=self.room_id).order_by('-timestamp')[:50]
+            history = [
                 {
                     "message": m.text,
                     "user_id": m.sender.id,
@@ -130,6 +134,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }
                 for m in messages
             ]
+            return list(reversed(history))
         except Exception as e:
             print(f"[ERROR] get_history: {e}")
             return []
