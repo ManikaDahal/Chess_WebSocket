@@ -111,10 +111,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
             room = ChatRoom.objects.get(id=int(self.room_id))
             sender = User.objects.get(id=int(sender_id))
             participants = room.users.exclude(id=sender.id)
-            print(f"[DEBUG] Notifying {participants.count()} participants in room {self.room_id}")
+            print(f"[DEBUG] create_notification: Sender {sender_id}. Total users in room: {room.users.count()}")
+            print(f"[DEBUG] Participants to notify: {[p.username for p in participants]}")
+            
             for user in participants:
                 Notification.objects.create(user=user, sender=sender, message=message, room=room)
                 # Global notification: Notify the user on their personal topic
+                print(f"[DEBUG] Sending MQTT to user {user.id} ({user.username}) for room {self.room_id}")
                 notify_user_via_mqtt(user.id, self.room_id, message, sender.id, sender_name)
         except Exception as e:
              print(f"[ERROR] create_notification: {e}")

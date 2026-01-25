@@ -52,10 +52,12 @@ def notify_user_via_mqtt(user_id, room_id, message, sender_id, sender_name):
     Notifies a specific user about a new message in any room.
     """
     topic = f"chess/user/{user_id}/notifications"
+    import time
     data = {
         "message": message,
         "user_id": sender_id,
         "room_id": int(room_id),
         "sender_name": sender_name,
+        "timestamp": int(time.time() * 1000) # Milliseconds
     }
     publish_mqtt_message(topic, data)
