@@ -18,14 +18,17 @@ def publish_mqtt_message(topic, message_dict):
         client.connect(MQTT_BROKER, MQTT_PORT, MQTT_KEEPALIVE)
         
         payload = json.dumps(message_dict)
+        print(f"MQTT: Publishing to topic '{topic}': {payload}")
         result = client.publish(topic, payload)
         
         # Check if the message was actually published
         status = result[0]
         if status == 0:
             logger.info(f"MQTT: Successfully sent message to topic {topic}")
+            print(f"MQTT: Success status 0")
         else:
             logger.error(f"MQTT: Failed to send message to topic {topic}, status: {status}")
+            print(f"MQTT: Failed status {status}")
             
         client.disconnect()
     except Exception as e:

@@ -60,6 +60,9 @@ def get_or_create_private_room(request):
         if rooms.exists():
             # If multiple rooms exist (due to previous bugs), pick the oldest one
             room = rooms.order_by('created_at').first()
+            # SELF-HEALING: Ensure users are explicitly added to the M2M relation
+            # This handles cases where manual DB edits or bugs removed a user
+            room.users.add(user1, user2)
         else:
             room = ChatRoom.objects.create()
             room.users.add(user1)
