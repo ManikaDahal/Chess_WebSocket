@@ -5,11 +5,11 @@ import ssl
 
 logger = logging.getLogger(__name__)
 
-# HiveMQ Cloud Broker settings
+# HiveMQ Cloud Broker settings - MUST MATCH Flutter app credentials
 MQTT_BROKER = "feb84b33473b4be6a63034536797ca8c.s1.eu.hivemq.cloud"
 MQTT_PORT = 8883  # TLS port
-MQTT_USERNAME = "hivemq.webclient.1769410504916"
-MQTT_PASSWORD = r"A2*@&C3n$kBgjmDI6Sh5"
+MQTT_USERNAME = "hivemq.webclient.1769426436046"
+MQTT_PASSWORD = r"uYVG6&c>Smx1Ao0%!7Hh"
 MQTT_KEEPALIVE = 60
 
 def publish_mqtt_message(topic, message_dict):
