@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles', 
     'channels',  # Django Channels for WebSocket
+    'corsheaders',  # CORS support for WebSocket
     'rest_framework',  # For history API
     'call',  # WebSocket consumer app
     'chess_python', # shared user app
@@ -39,6 +40,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # CORS - must be before CommonMiddleware
     'django.contrib.sessions.middleware.SessionMiddleware',  # MUST be before auth
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -122,6 +124,24 @@ AUTH_USER_MODEL = 'chess_python.CustomUser'
 
 # CORS settings - Allow connections from your Flutter app and Vercel API
 CORS_ALLOW_ALL_ORIGINS = True  # For development, restrict in production
+
+# WebSocket-specific CORS settings
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    'sec-websocket-key',
+    'sec-websocket-version',
+    'sec-websocket-extensions',
+    'sec-websocket-protocol',
+]
 
 # Logging for debugging
 LOGGING = {
