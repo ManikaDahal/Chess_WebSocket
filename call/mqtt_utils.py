@@ -1,38 +1,53 @@
 import paho.mqtt.client as mqtt
 import json
 import logging
+import ssl
 
 logger = logging.getLogger(__name__)
 
-# MQTT Broker settings
-MQTT_BROKER = "broker.hivemq.com" # Using HiveMQ public broker
-MQTT_PORT = 1883
+# HiveMQ Cloud Broker settings
+MQTT_BROKER = "feb84b33473b4be6a63034536797ca8c.s1.eu.hivemq.cloud"
+MQTT_PORT = 8883  # TLS port
+MQTT_USERNAME = "hivemq.webclient.1769410504916"
+MQTT_PASSWORD = r"A2*@&C3n$kBgjmDI6Sh5"
 MQTT_KEEPALIVE = 60
 
 def publish_mqtt_message(topic, message_dict):
     """
-    Publishes a message to an MQTT topic.
+    Publishes a message to an MQTT topic using HiveMQ Cloud with TLS.
     """
     try:
         client = mqtt.Client()
+        
+        # Set username and password for authentication
+        client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
+        
+        # Enable TLS/SSL
+        client.tls_set(cert_reqs=ssl.CERT_REQUIRED, tls_version=ssl.PROTOCOL_TLS)
+        
+        # Connect to HiveMQ Cloud broker
         client.connect(MQTT_BROKER, MQTT_PORT, MQTT_KEEPALIVE)
         
         payload = json.dumps(message_dict)
         print(f"MQTT: Publishing to topic '{topic}': {payload}")
-        result = client.publish(topic, payload)
+        result = client.publish(topic, payload, qos=1)
+        
+        # Wait for publish to complete
+        result.wait_for_publish()
         
         # Check if the message was actually published
-        status = result[0]
-        if status == 0:
+        if result.is_published():
             logger.info(f"MQTT: Successfully sent message to topic {topic}")
-            print(f"MQTT: Success status 0")
+            print(f"MQTT: Success - message published")
         else:
-            logger.error(f"MQTT: Failed to send message to topic {topic}, status: {status}")
-            print(f"MQTT: Failed status {status}")
+            logger.error(f"MQTT: Failed to send message to topic {topic}")
+            print(f"MQTT: Failed to publish")
             
         client.disconnect()
     except Exception as e:
         logger.error(f"MQTT: Error publishing message: {e}")
+        print(f"MQTT: Exception - {e}")
+
 
 def notify_room_via_mqtt(room_id, message, sender_id, sender_name):
     """

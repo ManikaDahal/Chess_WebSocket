@@ -38,6 +38,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         data = json.loads(text_data)
         
+        # Handle ping/pong for keepalive
+        if data.get("type") == "ping":
+            await self.send(text_data=json.dumps({"type": "pong"}))
+            print(f"[DEBUG] Sent pong response to room {self.room_id}")
+            return
+        
         # Check if it's a history request
         if data.get("type") == "get_history":
             messages = await self.get_history()
