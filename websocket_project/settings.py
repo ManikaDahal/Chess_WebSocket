@@ -70,10 +70,14 @@ TEMPLATES = [
 # ASGI Application for WebSocket support
 ASGI_APPLICATION = 'websocket_project.asgi.application'
 
-# Channel Layers for WebSocket communication
+# WebSocket configuration
 CHANNEL_LAYERS = {
     'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer'
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        'CONFIG': {
+            # Increase timeout to prevent disconnections
+            'expiry': 60,  # Messages expire after 60 seconds
+        }
     }
 }
 
