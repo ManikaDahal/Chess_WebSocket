@@ -64,27 +64,40 @@ class ChatConsumer(AsyncWebsocketConsumer):
             if sender_name == "Unknown":
                 sender_name = await self.get_sender_name(user_id)
             
-            await self.save_message(user_id, message)
+            msg_info = await self.save_message(user_id, message)
             await self.create_notification(user_id, message, sender_name)
+            
+            payload = {
+                "type": "chat_message",
+                "message": message,
+                "user_id": user_id,
+                "sender_name": sender_name,
+            }
+            if msg_info:
+                payload.update(msg_info)
+
             await self.channel_layer.group_send(
                 self.room_group_name,
-                {
-                    "type": "chat_message",
-                    "message": message,
-                    "user_id": user_id,
-                    "sender_name": sender_name,
-                }
+                payload
             )
-            print(f"[DEBUG] Received and broadcast: {message} from {sender_name}")
+            print(f"[DEBUG] Received and broadcast: {message} from {sender_name} (ID: {msg_info.get('id') if msg_info else 'N/A'})")
 
     async def chat_message(self, event):
-        print("[DEBUG] Sending to frontend:",event)
-        await self.send(text_data=json.dumps({
+        print("[DEBUG] Sending to frontend:", event)
+        msg_data = {
+            "type": "chat_message",
             "message": event["message"],
             "user_id": event["user_id"],
             "sender_name": event.get("sender_name", "Unknown"),
             "room_id": self.room_id
-        }))
+        }
+        # Include ID and timestamp if present
+        if "id" in event:
+            msg_data["id"] = event["id"]
+        if "timestamp" in event:
+            msg_data["timestamp"] = event["timestamp"]
+
+        await self.send(text_data=json.dumps(msg_data))
 
     @database_sync_to_async
     def get_sender_name(self, user_id):
@@ -103,9 +116,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
         try:
              room = ChatRoom.objects.get(id=int(self.room_id))
              user = User.objects.get(id=user_id)
-             Message.objects.create(room=room, sender=user, text=message)
+             msg = Message.objects.create(room=room, sender=user, text=message)
+             return {
+                 "id": msg.id,
+                 "timestamp": msg.timestamp.isoformat()
+             }
         except Exception as e:
             print(f"[ERROR] save_message: {e}")
+            return None
        
 
     @database_sync_to_async
