@@ -2,7 +2,7 @@ import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from .models import ChatRoom, Message, Notification
-from .mqtt_utils import notify_room_via_mqtt
+from .notification_utils import notify_user_background
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -111,7 +111,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def create_notification(self, sender_id, message, sender_name):
         from django.apps import apps
-        from .mqtt_utils import notify_user_via_mqtt
+        from .notification_utils import notify_user_background
         User = apps.get_model('chess_python', 'CustomUser')
         try:
             room = ChatRoom.objects.get(id=int(self.room_id))
@@ -122,9 +122,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             
             for user in participants:
                 Notification.objects.create(user=user, sender=sender, message=message, room=room)
-                # Global notification: Notify the user on their personal topic
-                print(f"[DEBUG] Sending MQTT to user {user.id} ({user.username}) for room {self.room_id}")
-                notify_user_via_mqtt(user.id, self.room_id, message, sender.id, sender_name)
+                # Global notification: Notify the user via non-blocking FCM
+                print(f"[DEBUG] Triggering background FCM for user {user.id} ({user.username})")
+                notify_user_background(user.id, self.room_id, message, sender.id, sender_name)
         except Exception as e:
              print(f"[ERROR] create_notification: {e}")
 
