@@ -40,26 +40,26 @@ def send_fcm_notification(tokens, title, body, data=None):
     if isinstance(tokens, str):
         tokens = [tokens]
 
-    message = messaging.MulticastMessage(
-        notification=messaging.Notification(
-            title=title,
-            body=body,
-        ),
-        data=data or {},
-        tokens=tokens,
-    )
+    messages = [
+        messaging.Message(
+            notification=messaging.Notification(
+                title=title,
+                body=body,
+            ),
+            data=data or {},
+            token=token,
+        ) for token in tokens
+    ]
     
     try:
-        response = messaging.send_multicast(message)
+        response = messaging.send_each(messages)
         logger.info(f"FCM: Successfully sent {response.success_count} messages.")
         print(f"FCM: Successfully sent {response.success_count} messages. Failures: {response.failure_count}")
         
-        # If any tokens failed due to being invalid, we should ideally remove them.
-        # This can be handled in a follow-up refinement.
         return response
     except Exception as e:
-        logger.error(f"FCM: Error sending multicast message: {e}")
-        print(f"FCM: Error sending multicast message: {e}")
+        logger.error(f"FCM: Error sending messages: {e}")
+        print(f"FCM: Error sending messages: {e}")
         return None
 
 def notify_user_via_fcm(user, title, body, data=None):
@@ -67,8 +67,9 @@ def notify_user_via_fcm(user, title, body, data=None):
     from chess_python.models import FCMToken
     tokens = list(FCMToken.objects.filter(user=user).values_list('token', flat=True))
     if tokens:
+        print(f"FCM: Found {len(tokens)} tokens for user {user.username} (ID: {user.id})")
         return send_fcm_notification(tokens, title, body, data)
     else:
-        logger.info(f"FCM: No tokens found for user {user.username}")
-        print(f"FCM: No tokens found for user {user.username}")
+        logger.info(f"FCM: No tokens found for user {user.username} (ID: {user.id})")
+        print(f"FCM: No tokens found for user {user.username} (ID: {user.id})")
         return None
