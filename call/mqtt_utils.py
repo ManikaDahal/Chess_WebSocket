@@ -66,14 +66,25 @@ def notify_room_via_mqtt(room_id, message, sender_id, sender_name):
 
 def notify_user_via_mqtt(user_id, room_id, message, sender_id, sender_name):
     """
-    Notifies a specific user about a new message in any room.
+    Notifies a specific user about a new message in any room via MQTT and FCM.
     """
     topic = f"chess/user/{user_id}/notifications"
-    import time
     
-    publish_mqtt_message(topic, data)
+    data = {
+        "message": message,
+        "user_id": sender_id,
+        "room_id": room_id,
+        "sender_name": sender_name,
+        "timestamp": int(__import__('time').time() * 1000)
+    }
 
-    # ALSO send via FCM
+    # 1. Send via MQTT (Legacy/Fallback)
+    try:
+        publish_mqtt_message(topic, data)
+    except Exception as e:
+        print(f"MQTT: Notification failed for user {user_id}: {e}")
+
+    # 2. Send via FCM (Primary)
     try:
         from django.contrib.auth import get_user_model
         User = get_user_model()
