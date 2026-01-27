@@ -2,6 +2,7 @@ import paho.mqtt.client as mqtt
 import json
 import logging
 import ssl
+from .fcm_utils import notify_user_via_fcm
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +12,7 @@ MQTT_PORT = 8883  # TLS port
 MQTT_USERNAME = "hivemq.webclient.1769426436046"
 MQTT_PASSWORD = r"uYVG6&c>Smx1Ao0%!7Hh"
 MQTT_KEEPALIVE = 60
+
 
 def publish_mqtt_message(topic, message_dict):
     """
@@ -68,11 +70,28 @@ def notify_user_via_mqtt(user_id, room_id, message, sender_id, sender_name):
     """
     topic = f"chess/user/{user_id}/notifications"
     import time
-    data = {
-        "message": message,
-        "user_id": sender_id,
-        "room_id": int(room_id),
-        "sender_name": sender_name,
-        "timestamp": int(time.time() * 1000) # Milliseconds
-    }
+    
     publish_mqtt_message(topic, data)
+
+    # ALSO send via FCM
+    try:
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        user = User.objects.get(id=user_id)
+        
+        fcm_data = {
+            "room_id": str(room_id),
+            "user_id": str(sender_id),
+            "sender_name": str(sender_name),
+            "type": "chat_message"
+        }
+        
+        notify_user_via_fcm(
+            user=user,
+            title=f"New message from {sender_name}",
+            body=message,
+            data=fcm_data
+        )
+    except Exception as e:
+        logger.error(f"FCM: Failed to trigger notification for user {user_id}: {e}")
+        print(f"FCM: Failed to trigger notification: {e}")
