@@ -142,6 +142,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }
                 for m in messages
             ]
+            # Return oldest-to-newest for client side ListView
             return list(reversed(history))
         except Exception as e:
             print(f"[ERROR] get_history: {e}")
