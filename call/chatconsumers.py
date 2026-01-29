@@ -60,12 +60,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
         sender_name = data.get("sender_name") or "Unknown"
 
         if message and user_id:
-            # If sender_name wasn't provided, try to look it up in local DB (though it might be empty on WebSocket server)
+            # If sender_name wasn't provided, try to look it up in local DB
             if sender_name == "Unknown":
                 sender_name = await self.get_sender_name(user_id)
             
             msg_info = await self.save_message(user_id, message)
-            await self.create_notification(user_id, message, sender_name)
+            
+            # Pass msg_id if available to help with deduplication
+            msg_id = msg_info.get('id') if msg_info else None
+            await self.create_notification(user_id, message, sender_name, msg_id=msg_id)
             
             payload = {
                 "type": "chat_message",
@@ -80,7 +83,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 self.room_group_name,
                 payload
             )
-            print(f"[DEBUG] Received and broadcast: {message} from {sender_name} (ID: {msg_info.get('id') if msg_info else 'N/A'})")
+            print(f"[DEBUG] Received and broadcast: {message} from {sender_name} (ID: {msg_id})")
 
     async def chat_message(self, event):
         print("[DEBUG] Sending to frontend:", event)
@@ -127,7 +130,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
        
 
     @database_sync_to_async
-    def create_notification(self, sender_id, message, sender_name):
+    def create_notification(self, sender_id, message, sender_name, msg_id=None):
         from django.apps import apps
         from .notification_utils import notify_user_background
         User = apps.get_model('chess_python', 'CustomUser')
@@ -142,14 +145,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 Notification.objects.create(user=user, sender=sender, message=message, room=room)
                 # Global notification: Notify the user via non-blocking FCM
                 print(f"FCM [DEBUG]: Triggering backend FCM for user {user.id} ({user.username}) in Room {self.room_id}")
-                notify_user_background(user.id, self.room_id, message, sender.id, sender_name)
+                notify_user_background(user.id, self.room_id, message, sender.id, sender_name, msg_id=msg_id)
         except Exception as e:
              print(f"[ERROR] create_notification: {e}")
 
     @database_sync_to_async
     def get_history(self):
         try:
-            # Get the most recent 50 messages, then reverse them so they are in chronological order
+            # Get the most recent 50 messages, then reverse them
             messages = Message.objects.filter(room_id=self.room_id).order_by('-timestamp')[:50]
             history = [
                 {
@@ -162,7 +165,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 }
                 for m in messages
             ]
-            # Return oldest-to-newest for client side ListView
             return list(reversed(history))
         except Exception as e:
             print(f"[ERROR] get_history: {e}")

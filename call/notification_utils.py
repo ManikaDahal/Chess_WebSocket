@@ -4,19 +4,19 @@ from .fcm_utils import notify_user_via_fcm
 
 logger = logging.getLogger(__name__)
 
-def notify_user_background(user_id, room_id, message, sender_id, sender_name):
+def notify_user_background(user_id, room_id, message, sender_id, sender_name, msg_id=None):
     """
     Entry point to trigger an FCM notification in a background thread.
-    This prevents the WebSocket consumer from hangng.
+    This prevents the WebSocket consumer from hanging.
     """
     thread = threading.Thread(
         target=_process_notification,
-        args=(user_id, room_id, message, sender_id, sender_name),
+        args=(user_id, room_id, message, sender_id, sender_name, msg_id),
         daemon=True
     )
     thread.start()
 
-def _process_notification(user_id, room_id, message, sender_id, sender_name):
+def _process_notification(user_id, room_id, message, sender_id, sender_name, msg_id=None):
     """
     The actual work function running in the background thread.
     """
@@ -29,10 +29,12 @@ def _process_notification(user_id, room_id, message, sender_id, sender_name):
             "room_id": str(room_id),
             "user_id": str(sender_id),
             "sender_name": str(sender_name),
+            "message": str(message),
+            "id": str(msg_id) if msg_id else "",
             "type": "chat_message"
         }
         
-        print(f"FCM: Background thread starting for user {user.username}")
+        print(f"FCM: Background thread starting for user {user.username}. ID presence: {bool(msg_id)}")
         
         notify_user_via_fcm(
             user=user,
