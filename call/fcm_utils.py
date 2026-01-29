@@ -56,6 +56,12 @@ def send_fcm_notification(tokens, title, body, data=None):
         logger.info(f"FCM: Successfully sent {response.success_count} messages.")
         print(f"FCM: Successfully sent {response.success_count} messages. Failures: {response.failure_count}")
         
+        # Log specific token failures if any
+        if response.failure_count > 0:
+            for idx, res in enumerate(response.responses):
+                if not res.success:
+                    print(f"FCM: Failure for token index {idx}: {res.exception}")
+
         return response
     except Exception as e:
         logger.error(f"FCM: Error sending messages: {e}")

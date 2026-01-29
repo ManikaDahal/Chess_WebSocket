@@ -141,7 +141,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             for user in participants:
                 Notification.objects.create(user=user, sender=sender, message=message, room=room)
                 # Global notification: Notify the user via non-blocking FCM
-                print(f"[DEBUG] Triggering background FCM for user {user.id} ({user.username})")
+                print(f"FCM [DEBUG]: Triggering backend FCM for user {user.id} ({user.username}) in Room {self.room_id}")
                 notify_user_background(user.id, self.room_id, message, sender.id, sender_name)
         except Exception as e:
              print(f"[ERROR] create_notification: {e}")
