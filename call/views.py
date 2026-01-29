@@ -16,6 +16,7 @@ def chat_history(request, room_id):
         
         data = [
             {
+                "id": msg.id,
                 "message": msg.text,
                 "user_id": msg.sender.id,
                 "sender_name": msg.sender.username,

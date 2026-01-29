@@ -73,9 +73,9 @@ def notify_user_via_fcm(user, title, body, data=None):
     from chess_python.models import FCMToken
     tokens = list(FCMToken.objects.filter(user=user).values_list('token', flat=True))
     if tokens:
-        print(f"FCM: Found {len(tokens)} tokens for user {user.username} (ID: {user.id})")
+        print(f"FCM [TOKEN_CHECK]: Found {len(tokens)} tokens for user {user.username} (ID: {user.id})")
         return send_fcm_notification(tokens, title, body, data)
     else:
-        logger.info(f"FCM: No tokens found for user {user.username} (ID: {user.id})")
-        print(f"FCM: No tokens found for user {user.username} (ID: {user.id})")
+        logger.info(f"FCM [TOKEN_CHECK]: No tokens found for user {user.username} (ID: {user.id})")
+        print(f"FCM [TOKEN_CHECK]: WARNING - No tokens found for user {user.username} (ID: {user.id})")
         return None

@@ -153,10 +153,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
             messages = Message.objects.filter(room_id=self.room_id).order_by('-timestamp')[:50]
             history = [
                 {
+                    "id": m.id,
                     "message": m.text,
                     "user_id": m.sender.id,
                     "sender_name": m.sender.username,
-                    "room_id": self.room_id
+                    "room_id": self.room_id,
+                    "timestamp": m.timestamp.isoformat()
                 }
                 for m in messages
             ]
