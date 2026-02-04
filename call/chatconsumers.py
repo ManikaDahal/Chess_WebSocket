@@ -1,3 +1,4 @@
+from call.notification_utils import notify_room_members_background
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
@@ -137,7 +138,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         try:
             room = ChatRoom.objects.get(id=int(self.room_id))
             sender = User.objects.get(id=int(sender_id))
-            participants = room.users.exclude(id=sender.id)
+            participants = room.users.exclude(id=sender.id).distinct()
             print(f"[DEBUG] create_notification: Sender {sender_id}. Total users in room: {room.users.count()}")
             print(f"[DEBUG] Participants to notify: {[p.username for p in participants]}")
             
@@ -145,7 +146,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 Notification.objects.create(user=user, sender=sender, message=message, room=room)
                 # Global notification: Notify the user via non-blocking FCM
                 print(f"FCM [DEBUG]: Triggering backend FCM for user {user.id} ({user.username}) in Room {self.room_id}")
-                notify_user_background(user.id, self.room_id, message, sender.id, sender_name, msg_id=msg_id)
+                # notify_user_background(user.id, self.room_id, message, sender.id, sender_name, msg_id=msg_id)
+                notify_room_members_background(
+                    room_id=self.room_id,
+                     message=message,
+                     sender_id=sender.id,
+                      sender_name=sender_name,
+                      msg_id=msg_id
+                      )
         except Exception as e:
              print(f"[ERROR] create_notification: {e}")
 
