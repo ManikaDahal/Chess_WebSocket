@@ -178,8 +178,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             for user in participants:
                 Notification.objects.create(user=user, sender=sender, message=message, room=room)
                 if participants.count() == 1:
-                    receiver = participants.first()
-                    notify_user_background(receiver.id, self.room_id, message, sender.id, sender_name, msg_id=msg_id)
+                    notify_user_background(user.id, self.room_id, message, sender.id, sender_name, msg_id=msg_id)
                 elif participants.count() > 1:
                     notify_room_members_background(
                         room_id=self.room_id,
