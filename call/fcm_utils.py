@@ -46,6 +46,18 @@ def send_fcm_notification(tokens, title, body, data=None):
                 title=title,
                 body=body,
             ),
+            android=messaging.AndroidConfig(
+                priority='high',
+                notification=messaging.AndroidNotification(
+                    channel_id='chat_channel',
+                    priority='max',
+                ),
+            ),
+            apns=messaging.APNSConfig(
+                payload=messaging.APNSPayload(
+                    aps=messaging.Aps(content_available=True, priority=10),
+                ),
+            ),
             data=data or {},
             token=token,
         ) for token in tokens
