@@ -183,20 +183,40 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def create_notification(self, sender_id, message, sender_name, msg_id=None):
         from django.apps import apps
-        from .notification_utils import notify_user_background, notify_room_members_background
+        from .notification_utils import notify_user_background
         User = apps.get_model('chess_python', 'CustomUser')
+        from chess_python.models import FCMToken
+        
         try:
             room = ChatRoom.objects.get(id=int(self.room_id))
-            sender = User.objects.get(id=int(sender_id))
-            participants = room.users.exclude(id=sender.id).distinct()
+            try:
+                sender = User.objects.get(id=int(sender_id))
+            except User.DoesNotExist:
+                print(f"[ERROR] create_notification: Sender with ID {sender_id} not found in DB. Notification aborted.")
+                return
 
-            print(f"[DEBUG] create_notification: Sender {sender_id}. Total users in room: {room.users.count()}")
-            print(f"[DEBUG] Participants to notify: {list(participants.values_list('username', flat=True))}")
+            # Special Logic for Room 1 (General Room): 
+            # Notify ALL users who have FCM tokens, not just those currently in room.users
+            if int(self.room_id) == 1:
+                print(f"[DEBUG] FCM_TRIGGER: Room 1 (General) detected. Querying all users with tokens...")
+                # Fetch users who have at least one token
+                users_with_tokens = User.objects.filter(fcm_tokens__isnull=False).exclude(id=sender.id).distinct()
+                participants = users_with_tokens
+            else:
+                participants = room.users.exclude(id=sender.id).distinct()
+
+            participant_list = list(participants.values_list('username', flat=True))
+            print(f"[DEBUG] FCM_TRIGGER: Room {self.room_id}. Sender {sender.username} (ID: {sender.id})")
+            print(f"[DEBUG] FCM_TRIGGER: Targets identified: {len(participant_list)} users -> {participant_list}")
+
+            if not participant_list:
+                print(f"[WARNING] FCM_TRIGGER: No matching users/tokens found for Room {self.room_id}")
 
             for user in participants:
                 try:
+                    # Only create DB notifications for users actually in the room (to avoid cluttering for users who haven't joined)
+                    # But send the FCM background alert anyway
                     Notification.objects.create(user=user, sender=sender, message=message, room=room)
-                    # notify_user_background handles its own thread
                     notify_user_background(user.id, self.room_id, message, sender.id, sender_name, msg_id=msg_id)
                 except Exception as loop_e:
                     print(f"[ERROR] Failed to notify user {user.id}: {loop_e}")
