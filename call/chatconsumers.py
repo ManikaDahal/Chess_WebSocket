@@ -177,16 +177,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         
             for user in participants:
                 Notification.objects.create(user=user, sender=sender, message=message, room=room)
-                if participants.count() == 1:
+                import asyncio
+                asyncio.create_task(
                     notify_user_background(user.id, self.room_id, message, sender.id, sender_name, msg_id=msg_id)
-                elif participants.count() > 1:
-                    notify_room_members_background(
-                        room_id=self.room_id,
-                        message=message,
-                        sender_id=sender.id,
-                        sender_name=sender_name,
-                        msg_id=msg_id
-                        )
+                )
         except Exception as e:
             print(f"[ERROR] create_notification: {e}")
 
