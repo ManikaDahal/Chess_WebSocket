@@ -54,8 +54,9 @@ def send_fcm_notification(tokens, title, body, data=None):
                 ),
             ),
             apns=messaging.APNSConfig(
+                headers={'apns-priority': '10'},
                 payload=messaging.APNSPayload(
-                    aps=messaging.Aps(content_available=True, priority=10),
+                    aps=messaging.Aps(content_available=True),
                 ),
             ),
             data=data or {},
