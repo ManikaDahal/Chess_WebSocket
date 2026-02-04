@@ -25,17 +25,22 @@ def notify_room_members_background(room_id, message, sender_id, sender_name, msg
         from call.models import ChatRoom  
 
         room = ChatRoom.objects.get(id=room_id)
+        participants = room.users.exclude(id=sender_id)
+        print(f"FCM: Room {room_id} has {participants.count()} participants to notify.")
 
         # Loop through all members except sender
-        for member in room.members.exclude(id=sender_id):
-            notify_user_background(
-                user_id=member.id,
-                room_id=room_id,
-                message=message,
-                sender_id=sender_id,
-                sender_name=sender_name,
-                msg_id=msg_id
-            )
+        for member in participants:
+            try:
+                notify_user_background(
+                    user_id=member.id,
+                    room_id=room_id,
+                    message=message,
+                    sender_id=sender_id,
+                    sender_name=sender_name,
+                    msg_id=msg_id
+                )
+            except Exception as member_e:
+                print(f"FCM: Individual notify error for user {member.id}: {member_e}")
 
     except Exception as e:
         print(f"FCM Room Notify Error: {e}")

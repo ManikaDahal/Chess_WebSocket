@@ -191,15 +191,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
             participants = room.users.exclude(id=sender.id).distinct()
 
             print(f"[DEBUG] create_notification: Sender {sender_id}. Total users in room: {room.users.count()}")
-            print(f"[DEBUG] Participants to notify: {[p.username for p in participants]}")
+            print(f"[DEBUG] Participants to notify: {list(participants.values_list('username', flat=True))}")
 
-        
             for user in participants:
-                Notification.objects.create(user=user, sender=sender, message=message, room=room)
-                # notify_user_background already starts a separate thread
-                notify_user_background(user.id, self.room_id, message, sender.id, sender_name, msg_id=msg_id)
+                try:
+                    Notification.objects.create(user=user, sender=sender, message=message, room=room)
+                    # notify_user_background handles its own thread
+                    notify_user_background(user.id, self.room_id, message, sender.id, sender_name, msg_id=msg_id)
+                except Exception as loop_e:
+                    print(f"[ERROR] Failed to notify user {user.id}: {loop_e}")
         except Exception as e:
-            print(f"[ERROR] create_notification: {e}")
+            print(f"[ERROR] create_notification main: {e}")
 
 
     @database_sync_to_async
