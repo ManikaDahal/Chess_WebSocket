@@ -10,14 +10,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
         from django.apps import apps
         User = apps.get_model('chess_python', 'CustomUser')
         self.room_id = int(self.scope["url_route"]["kwargs"]["room_id"])  
+        self.user_id = int(self.scope["url_route"]["kwargs"]["user_id"])
         self.room_group_name = f"chat_{self.room_id}"
-        print(f"[DEBUG] Trying to connect to room {self.room_id}")
+        
+        print(f"[DEBUG] User {self.user_id} connecting to room {self.room_id}")
+        
+        # Add user to room in DB to ensure background notifications work
+        await self.add_user_to_room_db()
+
         await self.channel_layer.group_add(
             self.room_group_name,
             self.channel_name
         )
         await self.accept()
-        print("[DEBUG] Connection accepted")
+        print(f"[DEBUG] Connection accepted for User {self.user_id}")
 
         # Send history on connect
         messages = await self.get_history()
@@ -112,6 +118,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
             return user.username
         except:
             return "Unknown"
+
+    @database_sync_to_async
+    def add_user_to_room_db(self):
+        from django.apps import apps
+        User = apps.get_model('chess_python', 'CustomUser')
+        try:
+            room, _ = ChatRoom.objects.get_or_create(id=self.room_id)
+            user = User.objects.get(id=self.user_id)
+            if not room.users.filter(id=user.id).exists():
+                room.users.add(user)
+                print(f"[DEBUG] Added user {user.username} to Room {self.room_id} in DB")
+        except Exception as e:
+            print(f"[ERROR] add_user_to_room_db: {e}")
 
     @database_sync_to_async
     def save_message(self, user_id, message):
