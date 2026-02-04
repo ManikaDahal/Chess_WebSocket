@@ -162,39 +162,34 @@ class ChatConsumer(AsyncWebsocketConsumer):
     #          print(f"[ERROR] create_notification: {e}")
 
     @database_sync_to_async
-def create_notification(self, sender_id, message, sender_name, msg_id=None):
-    from django.apps import apps
-    from .notification_utils import notify_user_background, notify_room_members_background
-    User = apps.get_model('chess_python', 'CustomUser')
-    try:
-        room = ChatRoom.objects.get(id=int(self.room_id))
-        sender = User.objects.get(id=int(sender_id))
-        participants = room.users.exclude(id=sender.id).distinct()
+    def create_notification(self, sender_id, message, sender_name, msg_id=None):
+        from django.apps import apps
+        from .notification_utils import notify_user_background, notify_room_members_background
+        User = apps.get_model('chess_python', 'CustomUser')
+        try:
+            room = ChatRoom.objects.get(id=int(self.room_id))
+            sender = User.objects.get(id=int(sender_id))
+            participants = room.users.exclude(id=sender.id).distinct()
 
-        print(f"[DEBUG] create_notification: Sender {sender_id}. Total users in room: {room.users.count()}")
-        print(f"[DEBUG] Participants to notify: {[p.username for p in participants]}")
+            print(f"[DEBUG] create_notification: Sender {sender_id}. Total users in room: {room.users.count()}")
+            print(f"[DEBUG] Participants to notify: {[p.username for p in participants]}")
 
-        # Save notifications in DB
-        for user in participants:
-            Notification.objects.create(user=user, sender=sender, message=message, room=room)
-
-        #  Send FCM
-        if participants.count() == 1:
-            # Private message
-            receiver = participants.first()
-            notify_user_background(receiver.id, self.room_id, message, sender.id, sender_name, msg_id=msg_id)
-        elif participants.count() > 1:
-            # Room message
-            notify_room_members_background(
-                room_id=self.room_id,
-                message=message,
-                sender_id=sender.id,
-                sender_name=sender_name,
-                msg_id=msg_id
-            )
-
-    except Exception as e:
-        print(f"[ERROR] create_notification: {e}")
+        
+            for user in participants:
+                Notification.objects.create(user=user, sender=sender, message=message, room=room)
+                if participants.count() == 1:
+                    receiver = participants.first()
+                    notify_user_background(receiver.id, self.room_id, message, sender.id, sender_name, msg_id=msg_id)
+                elif participants.count() > 1:
+                    notify_room_members_background(
+                        room_id=self.room_id,
+                        message=message,
+                        sender_id=sender.id,
+                        sender_name=sender_name,
+                        msg_id=msg_id
+                        )
+        except Exception as e:
+            print(f"[ERROR] create_notification: {e}")
 
 
     @database_sync_to_async
