@@ -10,6 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import permission_classes
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def chat_history(request, room_id):
     """Returns the message history for a specific room."""
     User = apps.get_model('chess_python', 'CustomUser')
@@ -35,6 +36,7 @@ def chat_history(request, room_id):
         return Response({"error": str(e)}, status=500)
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def get_or_create_private_room(request):
     """Gets or creates a private chat room between two users."""
     User = apps.get_model('chess_python', 'CustomUser')

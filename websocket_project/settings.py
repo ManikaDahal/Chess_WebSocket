@@ -5,6 +5,7 @@
 import os
 import dj_database_url
 from pathlib import Path
+from datetime import timedelta
 
 # Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -33,6 +34,7 @@ INSTALLED_APPS = [
     'channels',  # Django Channels for WebSocket
     'corsheaders',  # CORS support for WebSocket
     'rest_framework',  # For history API
+    'rest_framework_simplejwt', # For JWT authentication
     'call',  # WebSocket consumer app
     'chess_python', # shared user app
 ]
@@ -147,7 +149,23 @@ CORS_ALLOW_HEADERS = [
     'sec-websocket-protocol',
 ]
 
-# Logging for debugging
+# REST Framework configuration
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'SIGNING_KEY': SECRET_KEY, # Shared secret key
+}
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
