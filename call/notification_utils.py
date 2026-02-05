@@ -4,14 +4,14 @@ from .fcm_utils import notify_user_via_fcm
 
 logger = logging.getLogger(__name__)
 
-def notify_user_background(user_id, room_id, message, sender_id, sender_name, msg_id=None):
+def notify_user_background(user_id, room_id, message, sender_id, sender_name, msg_id=None, notification_type="chat_message"):
     """
     Entry point to trigger an FCM notification in a background thread.
     This prevents the WebSocket consumer from hanging.
     """
     thread = threading.Thread(
         target=_process_notification,
-        args=(user_id, room_id, message, sender_id, sender_name, msg_id),
+        args=(user_id, room_id, message, sender_id, sender_name, msg_id, notification_type),
         daemon=True
     )
     thread.start()
@@ -46,7 +46,7 @@ def notify_room_members_background(room_id, message, sender_id, sender_name, msg
         print(f"FCM Room Notify Error: {e}")
 
 
-def _process_notification(user_id, room_id, message, sender_id, sender_name, msg_id=None):
+def _process_notification(user_id, room_id, message, sender_id, sender_name, msg_id=None, notification_type="chat_message"):
     """
     The actual work function running in the background thread.
     """
@@ -61,14 +61,16 @@ def _process_notification(user_id, room_id, message, sender_id, sender_name, msg
             "sender_name": str(sender_name),
             "message": str(message),
             "id": str(msg_id) if msg_id else "",
-            "type": "chat_message"
+            "type": notification_type
         }
         
-        print(f"FCM: Background thread starting for user {user.username}. ID presence: {bool(msg_id)}")
+        print(f"FCM: Background thread starting for user {user.username}. Type: {notification_type}")
+        
+        title = f"New message from {sender_name}" if notification_type == "chat_message" else f"Chess Invite from {sender_name}"
         
         notify_user_via_fcm(
             user=user,
-            title=f"New message from {sender_name}",
+            title=title,
             body=message,
             data=fcm_data
         )
