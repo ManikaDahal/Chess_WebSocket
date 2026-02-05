@@ -146,6 +146,17 @@ def accept_invite(request):
         invite.status = 'accepted'
         invite.save()
         
+        # Notify the sender that the invite was accepted
+        notify_user_background(
+            user_id=invite.sender.id,
+            room_id=invite.room.id,
+            message=f"{request.user.username} accepted your invitation!",
+            sender_id=request.user.id,
+            sender_name=request.user.username,
+            msg_id=f"accept_{invite.id}",
+            notification_type="invite_accepted"
+        )
+        
         return Response({
             "message": "Invitation accepted",
             "room_id": invite.room.id
@@ -162,6 +173,18 @@ def decline_invite(request):
         invite = GameInvite.objects.get(id=invite_id, receiver=request.user)
         invite.status = 'declined'
         invite.save()
+        
+        # Notify the sender that the invite was declined
+        notify_user_background(
+            user_id=invite.sender.id,
+            room_id=invite.room.id,
+            message=f"{request.user.username} declined your invitation.",
+            sender_id=request.user.id,
+            sender_name=request.user.username,
+            msg_id=f"decline_{invite.id}",
+            notification_type="invite_declined"
+        )
+        
         return Response({"message": "Invitation declined"})
     except GameInvite.DoesNotExist:
         return Response({"error": "Invitation not found"}, status=404)
