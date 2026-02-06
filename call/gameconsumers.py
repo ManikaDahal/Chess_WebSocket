@@ -28,6 +28,9 @@ class GameConsumer(AsyncWebsocketConsumer):
         message_type = data.get('type')
 
         if message_type == 'move':
+            # Add room info to help client filtering
+            data['room_id'] = self.room_id
+            
             # Broadcast move to the room group
             await self.channel_layer.group_send(
                 self.room_group_name,
