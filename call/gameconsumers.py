@@ -1,5 +1,6 @@
-import json
 from channels.generic.websocket import AsyncWebsocketConsumer
+from channels.db import database_sync_to_async
+from .models import GameMove
 
 class GameConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -13,6 +14,15 @@ class GameConsumer(AsyncWebsocketConsumer):
         )
 
         await self.accept()
+        
+        # Fetch and send history
+        history = await self.get_game_history()
+        await self.send(text_data=json.dumps({
+            'type': 'history',
+            'history': history,
+            'room_id': self.room_id
+        }))
+        
         await self.send(text_data=json.dumps({
             'type': 'connection_established',
             'room_id': self.room_id
@@ -32,6 +42,9 @@ class GameConsumer(AsyncWebsocketConsumer):
         message_type = data.get('type')
 
         if message_type == 'move':
+            # Save move to database
+            await self.save_move(data)
+            
             # Add room info to help client filtering
             data['room_id'] = self.room_id
             print(f"BROADCAST [Room {self.room_id}]: Move from {self.channel_name} -> {data}")
@@ -46,6 +59,9 @@ class GameConsumer(AsyncWebsocketConsumer):
                 }
             )
         elif message_type == 'reset':
+             # Clear history on reset
+             await self.clear_history()
+             
              await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -53,6 +69,33 @@ class GameConsumer(AsyncWebsocketConsumer):
                     'sender_channel_name': self.channel_name
                 }
             )
+
+    @database_sync_to_async
+    def save_move(self, data):
+        GameMove.objects.create(
+            room_id=self.room_id,
+            from_row=data['from_row'],
+            from_col=data['from_col'],
+            to_row=data['to_row'],
+            to_col=data['to_col']
+        )
+
+    @database_sync_to_async
+    def get_game_history(self):
+        moves = GameMove.objects.filter(room_id=self.room_id).order_by('timestamp')
+        return [
+            {
+                'from_row': m.from_row,
+                'from_col': m.from_col,
+                'to_row': m.to_row,
+                'to_col': m.to_col
+            }
+            for m in moves
+        ]
+
+    @database_sync_to_async
+    def clear_history(self):
+        GameMove.objects.filter(room_id=self.room_id).delete()
 
     async def game_move(self, event):
         # Send move to all WebSocket clients in the group (including sender) to verify delivery

@@ -36,3 +36,17 @@ class GameInvite(models.Model):
 
     def __str__(self):
         return f"{self.sender} -> {self.receiver} ({self.status})"
+
+class GameMove(models.Model):
+    room_id = models.IntegerField()
+    from_row = models.IntegerField()
+    from_col = models.IntegerField()
+    to_row = models.IntegerField()
+    to_col = models.IntegerField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['timestamp']
+
+    def __str__(self):
+        return f"Move in room {self.room_id}: ({self.from_row},{self.from_col}) -> ({self.to_row},{self.to_col})"
