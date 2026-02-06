@@ -78,30 +78,43 @@ class GameConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def save_move(self, data):
-        GameMove.objects.create(
-            room_id=self.room_id,
-            from_row=data['from_row'],
-            from_col=data['from_col'],
-            to_row=data['to_row'],
-            to_col=data['to_col']
-        )
+        try:
+            rid = int(self.room_id)
+            GameMove.objects.create(
+                room_id=rid,
+                from_row=data['from_row'],
+                from_col=data['from_col'],
+                to_row=data['to_row'],
+                to_col=data['to_col']
+            )
+        except Exception as e:
+            print(f"Error saving move to DB: {e}")
 
     @database_sync_to_async
     def get_game_history(self):
-        moves = GameMove.objects.filter(room_id=self.room_id).order_by('timestamp')
-        return [
-            {
-                'from_row': m.from_row,
-                'from_col': m.from_col,
-                'to_row': m.to_row,
-                'to_col': m.to_col
-            }
-            for m in moves
-        ]
+        try:
+            rid = int(self.room_id)
+            moves = GameMove.objects.filter(room_id=rid).order_by('timestamp')
+            return [
+                {
+                    'from_row': m.from_row,
+                    'from_col': m.from_col,
+                    'to_row': m.to_row,
+                    'to_col': m.to_col
+                }
+                for m in moves
+            ]
+        except Exception as e:
+            print(f"Error fetching game history: {e}")
+            return []
 
     @database_sync_to_async
     def clear_history(self):
-        GameMove.objects.filter(room_id=self.room_id).delete()
+        try:
+            rid = int(self.room_id)
+            GameMove.objects.filter(room_id=rid).delete()
+        except Exception as e:
+            print(f"Error clearing history: {e}")
 
     async def game_move(self, event):
         # Send move to all WebSocket clients in the group (including sender) to verify delivery
