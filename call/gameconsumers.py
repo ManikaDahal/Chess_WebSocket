@@ -13,6 +13,10 @@ class GameConsumer(AsyncWebsocketConsumer):
         )
 
         await self.accept()
+        await self.send(text_data=json.dumps({
+            'type': 'connection_established',
+            'room_id': self.room_id
+        }))
         print(f"[GAME] User connected to room {self.room_id}")
 
     async def disconnect(self, close_code):
@@ -21,7 +25,7 @@ class GameConsumer(AsyncWebsocketConsumer):
             self.room_group_name,
             self.channel_name
         )
-        print(f"[GAME] User disconnected from room {self.room_id}")
+        print(f"[GAME] User DISCONNECTED from room {self.room_id} (code: {close_code})")
 
     async def receive(self, text_data):
         data = json.loads(text_data)
@@ -30,6 +34,7 @@ class GameConsumer(AsyncWebsocketConsumer):
         if message_type == 'move':
             # Add room info to help client filtering
             data['room_id'] = self.room_id
+            print(f"BROADCAST [Room {self.room_id}]: Move from {self.channel_name} -> {data}")
             
             # Broadcast move to the room group
             await self.channel_layer.group_send(
@@ -50,10 +55,10 @@ class GameConsumer(AsyncWebsocketConsumer):
             )
 
     async def game_move(self, event):
-        # Send move to WebSocket except the sender
-        if self.channel_name != event['sender_channel_name']:
-            await self.send(text_data=json.dumps(event['move_data']))
+        # Send move to all WebSocket clients in the group (including sender) to verify delivery
+        print(f"DELIVERING [Room {self.room_id}] to {self.channel_name}")
+        await self.send(text_data=json.dumps(event['move_data']))
 
     async def game_reset(self, event):
-        if self.channel_name != event['sender_channel_name']:
-            await self.send(text_data=json.dumps({'type': 'reset'}))
+        # Send reset to all clients
+        await self.send(text_data=json.dumps({'type': 'reset'}))
