@@ -58,6 +58,12 @@ class GameConsumer(AsyncWebsocketConsumer):
                     'sender_channel_name': self.channel_name
                 }
             )
+        elif message_type == 'ping':
+            # Heartbeat from client
+            await self.send(text_data=json.dumps({
+                'type': 'pong',
+                'room_id': self.room_id
+            }))
         elif message_type == 'reset':
              # Clear history on reset
              await self.clear_history()
