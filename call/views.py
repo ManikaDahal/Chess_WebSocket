@@ -2,7 +2,7 @@ from django.db.models import Count
 from django.apps import apps
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import ChatRoom, Message, Notification, GameInvite
+from .models import ChatRoom, Message, Notification, GameInvite, GameMove
 from asgiref.sync import sync_to_async
 from django.db import transaction
 from .notification_utils import notify_user_background
@@ -145,6 +145,10 @@ def accept_invite(request):
         invite = GameInvite.objects.get(id=invite_id, receiver=request.user)
         invite.status = 'accepted'
         invite.save()
+        
+        # CLEAR HISTORY: Ensure a fresh game for every new invitation
+        GameMove.objects.filter(room_id=invite.room.id).delete()
+        print(f"[GAME] History CLEARED for Room {invite.room.id} on acceptance")
         
         # Notify the sender that the invite was accepted
         notify_user_background(
