@@ -143,6 +143,13 @@ CLOUDINARY_STORAGE = {
     'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
 }
 
+# DEBUG: Check if credentials are loaded (Do not print actual secrets)
+print("--- CLOUDINARY CONFIG DEBUG ---")
+print(f"CLOUD_NAME: {CLOUDINARY_STORAGE.get('CLOUD_NAME')}")
+print(f"API_KEY: {'Found' if CLOUDINARY_STORAGE.get('API_KEY') else 'Missing'}")
+print(f"API_SECRET: {'Found' if CLOUDINARY_STORAGE.get('API_SECRET') else 'Missing'}")
+print("-------------------------------")
+
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 # File upload settings for large video files
