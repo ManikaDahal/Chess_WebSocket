@@ -37,20 +37,25 @@ class GameVideoAdmin(admin.ModelAdmin):
     )
     
     def save_model(self, request, obj, form, change):
+        import sys
         try:
             # Auto-calculate file size if video file exists
             if obj.video_file:
                 try:
                     obj.file_size = obj.video_file.size
                 except Exception as e:
-                    # If file size cannot be retrieved (e.g. storage issue), 
-                    # log it and continue without crashing
-                    print(f"Error calculating file size: {e}")
+                    sys.stderr.write(f"WARNING: Error calculating file size: {e}\n")
+            
+            # Print debug info before saving
+            sys.stderr.write(f"DEBUG: Attempting to save video '{obj.title}'...\n")
             super().save_model(request, obj, form, change)
+            sys.stderr.write(f"DEBUG: Successfully saved video '{obj.title}'\n")
+            
         except Exception as e:
-            # Log the error but re-raise it so Django handles it correctly
-            # This prevents TransactionManagementError
-            print(f"CRITICAL ERROR SAVING VIDEO: {e}")
+            # Log critical error to stderr (always visible in Render logs)
+            sys.stderr.write(f"CRITICAL ERROR SAVING VIDEO: {e}\n")
+            import traceback
+            traceback.print_exc(file=sys.stderr)
             raise e
 
 # Register other models
