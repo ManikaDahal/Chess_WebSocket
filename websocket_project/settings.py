@@ -22,6 +22,10 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
 ]
 
+CSRF_TRUSTED_ORIGINS = [
+    'https://chess-websocket-dor6.onrender.com',
+]
+
 # Application definition
 INSTALLED_APPS = [
     'daphne',  # ASGI server for WebSocket support
