@@ -37,22 +37,21 @@ class GameVideoAdmin(admin.ModelAdmin):
     )
     
     def save_model(self, request, obj, form, change):
-        # Auto-calculate file size if video file exists
-        if obj.video_file:
-            try:
-                obj.file_size = obj.video_file.size
-            except Exception as e:
-                # If file size cannot be retrieved (e.g. storage issue), 
-                # log it and continue without crashing
-                print(f"Error calculating file size: {e}")
         try:
+            # Auto-calculate file size if video file exists
+            if obj.video_file:
+                try:
+                    obj.file_size = obj.video_file.size
+                except Exception as e:
+                    # If file size cannot be retrieved (e.g. storage issue), 
+                    # log it and continue without crashing
+                    print(f"Error calculating file size: {e}")
             super().save_model(request, obj, form, change)
         except Exception as e:
-            # Catch Cloudinary or other storage errors
-            print(f"ERROR: Failed to save video (likely Cloudinary upload failed): {e}")
-            from django.contrib import messages
-            messages.set_level(request, messages.ERROR)
-            messages.error(request, f"Failed to upload video: {str(e)}. Check Cloudinary credentials.")
+            # Log the error but re-raise it so Django handles it correctly
+            # This prevents TransactionManagementError
+            print(f"CRITICAL ERROR SAVING VIDEO: {e}")
+            raise e
 
 # Register other models
 admin.site.register(GameInvite)
