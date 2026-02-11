@@ -5,6 +5,8 @@ from django.urls import path
 from django.http import HttpResponse 
 from django.conf import settings
 from django.conf.urls.static import static
+from django.urls import re_path
+from django.views.static import serve
 
 
 from call.views import chat_history, get_or_create_private_room, send_invite, accept_invite, decline_invite, pending_invites
@@ -31,8 +33,6 @@ urlpatterns = [
     path('api/videos/<int:video_id>/delete/', delete_video, name='delete_video'),
     
     path('', home),
+    # Serve media files (videos, thumbnails) in PRODUCTION (since we don't have S3 yet)
+    re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
 ]
-
-# Serve media files in development
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

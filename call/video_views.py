@@ -71,7 +71,12 @@ def stream_video(request, video_id):
     
     video_path = video.video_file.path
     
+    print(f"DEBUGGING STREAM: Video ID: {video_id}")
+    print(f"DEBUGGING STREAM: Video Path: {video_path}")
+    print(f"DEBUGGING STREAM: File Exists: {os.path.exists(video_path)}")
+
     if not os.path.exists(video_path):
+        print("ERROR: Video file does not exist at path")
         raise Http404("Video file does not exist")
     
     # Get file size
