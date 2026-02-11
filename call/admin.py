@@ -39,7 +39,12 @@ class GameVideoAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         # Auto-calculate file size if video file exists
         if obj.video_file:
-            obj.file_size = obj.video_file.size
+            try:
+                obj.file_size = obj.video_file.size
+            except Exception as e:
+                # If file size cannot be retrieved (e.g. storage issue), 
+                # log it and continue without crashing
+                print(f"Error calculating file size: {e}")
         super().save_model(request, obj, form, change)
 
 # Register other models
