@@ -106,14 +106,20 @@ def delete_video(request, video_id):
     
     video = get_object_or_404(GameVideo, id=video_id)
     
-    # Delete the actual file
+    # Delete from Cloudinary
     if video.video_file:
-        if os.path.exists(video.video_file.path):
-            os.remove(video.video_file.path)
-    
+        import cloudinary.uploader
+        # CloudinaryField stores the public_id
+        try:
+            cloudinary.uploader.destroy(video.video_file.public_id, resource_type='video')
+        except Exception as e:
+            print(f"Error deleting video from Cloudinary: {e}")
+
     if video.thumbnail:
-        if os.path.exists(video.thumbnail.path):
-            os.remove(video.thumbnail.path)
+        try:
+            cloudinary.uploader.destroy(video.thumbnail.public_id)
+        except Exception as e:
+            print(f"Error deleting thumbnail from Cloudinary: {e}")
     
     video.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)

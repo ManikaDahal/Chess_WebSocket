@@ -42,7 +42,10 @@ class GameVideoAdmin(admin.ModelAdmin):
             # Auto-calculate file size if video file exists
             if obj.video_file:
                 try:
-                    obj.file_size = obj.video_file.size
+                    # Cloudinary field doesn't have .size immediately available in the same way locally
+                    # But we can try to get it if available, or just skip it for now
+                    if hasattr(obj.video_file, 'size'):
+                         obj.file_size = obj.video_file.size
                 except Exception as e:
                     sys.stderr.write(f"WARNING: Error calculating file size: {e}\n")
             

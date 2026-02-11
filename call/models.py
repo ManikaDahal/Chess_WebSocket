@@ -55,7 +55,8 @@ class GameVideo(models.Model):
     """Stores chess tutorial/gameplay videos"""
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
-    video_file = models.FileField(upload_to='game_videos/')
+    from cloudinary.models import CloudinaryField
+    video_file = CloudinaryField('video', resource_type='video')
     thumbnail = models.ImageField(upload_to='video_thumbnails/', null=True, blank=True)
     duration = models.IntegerField(help_text="Duration in seconds", default=0)
     file_size = models.BigIntegerField(help_text="File size in bytes", default=0)
