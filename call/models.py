@@ -69,3 +69,35 @@ class GameVideo(models.Model):
 
     def __str__(self):
         return self.title
+
+class VideoComment(models.Model):
+    video = models.ForeignKey(GameVideo, on_delete=models.CASCADE, related_name='comments')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Comment by {self.user} on {self.video}"
+
+class VideoReaction(models.Model):
+    REACTION_TYPES = [
+        ('like', 'Like'),
+        ('heart', 'Heart'),
+        ('laugh', 'Laugh'),
+        ('surprised', 'Surprised'),
+        ('sad', 'Sad'),
+        ('angry', 'Angry'),
+    ]
+    video = models.ForeignKey(GameVideo, on_delete=models.CASCADE, related_name='reactions')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    reaction_type = models.CharField(max_length=20, choices=REACTION_TYPES)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('video', 'user')
+
+    def __str__(self):
+        return f"{self.user} reacted {self.reaction_type} to {self.video}"

@@ -4,8 +4,8 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.http import FileResponse, Http404, StreamingHttpResponse
 from django.shortcuts import get_object_or_404
-from .models import GameVideo
-from .serializers import GameVideoSerializer
+from .models import GameVideo, VideoComment, VideoReaction
+from .serializers import GameVideoSerializer, VideoCommentSerializer
 import os
 import mimetypes
 
@@ -123,3 +123,50 @@ def delete_video(request, video_id):
     
     video.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def video_comments(request, video_id):
+    """List or add comments for a video"""
+    if request.method == 'GET':
+        comments = VideoComment.objects.filter(video_id=video_id)
+        serializer = VideoCommentSerializer(comments, many=True)
+        return Response(serializer.data)
+    
+    elif request.method == 'POST':
+        video = get_object_or_404(GameVideo, id=video_id)
+        serializer = VideoCommentSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user=request.user, video=video)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def toggle_reaction(request, video_id):
+    """Toggle a reaction for a video"""
+    video = get_object_or_404(GameVideo, id=video_id)
+    reaction_type = request.data.get('reaction_type')
+    
+    if not reaction_type:
+        return Response({"error": "reaction_type is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+    # Check if reaction already exists
+    reaction = VideoReaction.objects.filter(video=video, user=request.user).first()
+    
+    if reaction:
+        if reaction.reaction_type == reaction_type:
+            # If same reaction, remove it (toggle off)
+            reaction.delete()
+            return Response({"status": "removed"}, status=status.HTTP_200_OK)
+        else:
+            # If different reaction, update it
+            reaction.reaction_type = reaction_type
+            reaction.save()
+            return Response({"status": "updated", "reaction_type": reaction_type}, status=status.HTTP_200_OK)
+    else:
+        # Create new reaction
+        VideoReaction.objects.create(video=video, user=request.user, reaction_type=reaction_type)
+        return Response({"status": "created", "reaction_type": reaction_type}, status=status.HTTP_201_CREATED)

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ChatRoom, Message, Notification, GameInvite, GameMove, GameVideo
+from .models import ChatRoom, Message, Notification, GameInvite, GameMove, GameVideo, VideoComment, VideoReaction
 
 @admin.register(ChatRoom)
 class ChatRoomAdmin(admin.ModelAdmin):
@@ -64,3 +64,5 @@ class GameVideoAdmin(admin.ModelAdmin):
 # Register other models
 admin.site.register(GameInvite)
 admin.site.register(GameMove)
+admin.site.register(VideoComment)
+admin.site.register(VideoReaction)
