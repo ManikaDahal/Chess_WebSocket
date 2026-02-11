@@ -50,3 +50,21 @@ class GameMove(models.Model):
 
     def __str__(self):
         return f"Move in room {self.room_id}: ({self.from_row},{self.from_col}) -> ({self.to_row},{self.to_col})"
+
+class GameVideo(models.Model):
+    """Stores chess tutorial/gameplay videos"""
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    video_file = models.FileField(upload_to='game_videos/')
+    thumbnail = models.ImageField(upload_to='video_thumbnails/', null=True, blank=True)
+    duration = models.IntegerField(help_text="Duration in seconds", default=0)
+    file_size = models.BigIntegerField(help_text="File size in bytes", default=0)
+    views = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.title

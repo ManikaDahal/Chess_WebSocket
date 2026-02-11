@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ChatRoom, Message, Notification
+from .models import ChatRoom, Message, Notification, GameInvite, GameMove, GameVideo
 
 @admin.register(ChatRoom)
 class ChatRoomAdmin(admin.ModelAdmin):
@@ -16,3 +16,32 @@ class MessageAdmin(admin.ModelAdmin):
 class NotificationAdmin(admin.ModelAdmin):
     list_display = ('id', 'user', 'sender', 'room', 'message', 'created_at')
     list_filter = ('user', 'sender', 'room')
+
+@admin.register(GameVideo)
+class GameVideoAdmin(admin.ModelAdmin):
+    list_display = ['title', 'duration', 'file_size', 'views', 'created_at']
+    list_filter = ['created_at']
+    search_fields = ['title', 'description']
+    readonly_fields = ['views', 'created_at', 'updated_at', 'file_size']
+    
+    fieldsets = (
+        ('Video Information', {
+            'fields': ('title', 'description')
+        }),
+        ('Files', {
+            'fields': ('video_file', 'thumbnail')
+        }),
+        ('Metadata', {
+            'fields': ('duration', 'file_size', 'views', 'created_at', 'updated_at')
+        }),
+    )
+    
+    def save_model(self, request, obj, form, change):
+        # Auto-calculate file size if video file exists
+        if obj.video_file:
+            obj.file_size = obj.video_file.size
+        super().save_model(request, obj, form, change)
+
+# Register other models
+admin.site.register(GameInvite)
+admin.site.register(GameMove)
