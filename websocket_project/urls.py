@@ -33,6 +33,8 @@ urlpatterns = [
     path('api/videos/<int:video_id>/delete/', delete_video, name='delete_video'),
     
     path('', home),
-    # Serve media files (videos, thumbnails) in PRODUCTION (since we don't have S3 yet)
+    # Serve media files (videos, thumbnails) in PRODUCTION
     re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
+    # Force serve static files (CSS/JS) to fix Admin 404s on Render
+    re_path(r'^static/(?P<path>.*)$', serve, {'document_root': settings.STATIC_ROOT}),
 ]
