@@ -20,7 +20,11 @@ ALLOWED_HOSTS = [
     '.onrender.com',
     'localhost',
     '127.0.0.1',
+    '127.0.0.1',
 ]
+
+# Render puts the application behind a proxy, so we need to trust the X-Forwarded-Proto header
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 CSRF_TRUSTED_ORIGINS = [
     'https://chess-websocket-dor6.onrender.com',
