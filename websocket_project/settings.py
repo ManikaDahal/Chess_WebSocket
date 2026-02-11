@@ -45,6 +45,8 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt', # For JWT authentication
     'call',  # WebSocket consumer app
     'chess_python', # shared user app
+    'cloudinary_storage', # Cloudinary storage backend
+    'cloudinary', # Cloudinary SDK
 ]
 
 MIDDLEWARE = [
@@ -132,7 +134,16 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 # Media files (User uploads - videos, thumbnails)
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+# MEDIA_ROOT = BASE_DIR / 'media'
+
+# Cloudinary Configuration
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
+    'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
+}
+
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 # File upload settings for large video files
 FILE_UPLOAD_MAX_MEMORY_SIZE = 200 * 1024 * 1024  # 200MB

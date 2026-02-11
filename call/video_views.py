@@ -63,64 +63,18 @@ class RangeFileWrapper:
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def stream_video(request, video_id):
-    """Stream video with range request support for seeking"""
+    """
+    Redirect to the Cloudinary URL for streaming.
+    Cloudinary handles range requests and streaming efficiently.
+    """
     video = get_object_or_404(GameVideo, id=video_id)
     
     if not video.video_file:
         raise Http404("Video file not found")
-    
-    video_path = video.video_file.path
-    
-    print(f"DEBUGGING STREAM: Video ID: {video_id}")
-    print(f"DEBUGGING STREAM: Video Path: {video_path}")
-    print(f"DEBUGGING STREAM: File Exists: {os.path.exists(video_path)}")
-
-    if not os.path.exists(video_path):
-        print("ERROR: Video file does not exist at path")
-        raise Http404("Video file does not exist")
-    
-    # Get file size
-    file_size = os.path.getsize(video_path)
-    
-    # Get content type
-    content_type, _ = mimetypes.guess_type(video_path)
-    if not content_type:
-        content_type = 'video/mp4'
-    
-    # Handle range requests
-    range_header = request.META.get('HTTP_RANGE', '').strip()
-    range_match = None
-    
-    if range_header:
-        import re
-        range_match = re.search(r'bytes=(\d+)-(\d*)', range_header)
-    
-    if range_match:
-        # Partial content request
-        start = int(range_match.group(1))
-        end = range_match.group(2)
-        end = int(end) if end else file_size - 1
-        length = end - start + 1
         
-        resp = StreamingHttpResponse(
-            RangeFileWrapper(open(video_path, 'rb'), offset=start, length=length),
-            status=206,
-            content_type=content_type
-        )
-        resp['Content-Length'] = str(length)
-        resp['Content-Range'] = f'bytes {start}-{end}/{file_size}'
-    else:
-        # Full file request
-        resp = FileResponse(
-            open(video_path, 'rb'),
-            content_type=content_type
-        )
-        resp['Content-Length'] = str(file_size)
-    
-    resp['Accept-Ranges'] = 'bytes'
-    resp['Cache-Control'] = 'no-cache'
-    
-    return resp
+    # Redirect to the external Cloudinary URL
+    from django.shortcuts import redirect
+    return redirect(video.video_file.url)
 
 
 @api_view(['POST'])
