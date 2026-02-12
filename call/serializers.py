@@ -28,15 +28,13 @@ class GameVideoSerializer(serializers.ModelSerializer):
         read_only_fields = ['views', 'created_at', 'updated_at']
     
     def get_video_url(self, obj):
-        request = self.context.get('request')
-        if obj.video_file and request:
-            return request.build_absolute_uri(obj.video_file.url)
+        if obj.video_file:
+            return obj.video_file.url
         return None
     
     def get_thumbnail_url(self, obj):
-        request = self.context.get('request')
-        if obj.thumbnail and request:
-            return request.build_absolute_uri(obj.thumbnail.url)
+        if obj.thumbnail:
+            return obj.thumbnail.url
         return None
     
     def get_stream_url(self, obj):

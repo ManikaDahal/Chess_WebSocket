@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from cloudinary.models import CloudinaryField
 
 class ChatRoom(models.Model):
     """Chat room for two or more users"""
@@ -55,7 +56,6 @@ class GameVideo(models.Model):
     """Stores chess tutorial/gameplay videos"""
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
-    from cloudinary.models import CloudinaryField
     video_file = CloudinaryField('video', resource_type='video')
     thumbnail = models.ImageField(upload_to='video_thumbnails/', null=True, blank=True)
     duration = models.IntegerField(help_text="Duration in seconds", default=0)
