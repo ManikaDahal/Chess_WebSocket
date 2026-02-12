@@ -29,12 +29,22 @@ class GameVideoSerializer(serializers.ModelSerializer):
     
     def get_video_url(self, obj):
         if obj.video_file:
-            return obj.video_file.url
+            url = obj.video_file.url
+            if not url.startswith('http') and not url.startswith('//'):
+                request = self.context.get('request')
+                if request:
+                    return request.build_absolute_uri(url)
+            return url
         return None
     
     def get_thumbnail_url(self, obj):
         if obj.thumbnail:
-            return obj.thumbnail.url
+            url = obj.thumbnail.url
+            if not url.startswith('http') and not url.startswith('//'):
+                request = self.context.get('request')
+                if request:
+                    return request.build_absolute_uri(url)
+            return url
         return None
     
     def get_stream_url(self, obj):
