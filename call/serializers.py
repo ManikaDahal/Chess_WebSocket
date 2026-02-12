@@ -30,20 +30,28 @@ class GameVideoSerializer(serializers.ModelSerializer):
     def get_video_url(self, obj):
         if obj.video_file:
             url = obj.video_file.url
-            if not url.startswith('http') and not url.startswith('//'):
-                request = self.context.get('request')
-                if request:
-                    return request.build_absolute_uri(url)
+            # CRITICAL FIX: If the URL already has a scheme (http/https) or is protocol-relative (//),
+            # DO NOT use build_absolute_uri. This prevents the "Double URL" bug.
+            if url.startswith(('http:', 'https:', '//')):
+                return url
+            
+            request = self.context.get('request')
+            if request:
+                absolute_url = request.build_absolute_uri(url)
+                print(f"DEBUG: Serializing Relative Video URL: {url} -> {absolute_url}")
+                return absolute_url
             return url
         return None
     
     def get_thumbnail_url(self, obj):
         if obj.thumbnail:
             url = obj.thumbnail.url
-            if not url.startswith('http') and not url.startswith('//'):
-                request = self.context.get('request')
-                if request:
-                    return request.build_absolute_uri(url)
+            if url.startswith(('http:', 'https:', '//')):
+                return url
+            
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(url)
             return url
         return None
     
