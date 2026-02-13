@@ -64,17 +64,48 @@ class RangeFileWrapper:
 @permission_classes([AllowAny])
 def stream_video(request, video_id):
     """
-    Redirect to the Cloudinary URL for streaming.
-    Cloudinary handles range requests and streaming efficiently.
+    Proxy stream to Cloudinary URL.
+    Direct redirect causes issues with some Android devices (Xiaomi ExoPlayer).
     """
     video = get_object_or_404(GameVideo, id=video_id)
     
     if not video.video_file:
         raise Http404("Video file not found")
+    
+    # Get the Cloudinary URL
+    cloudinary_url = video.video_file.url
+    
+    # Proxy the request to Cloudinary with range support
+    import requests
+    
+    # Forward range headers if present
+    headers = {}
+    if 'HTTP_RANGE' in request.META:
+        headers['Range'] = request.META['HTTP_RANGE']
+    
+    try:
+        # Stream from Cloudinary
+        cloudinary_response = requests.get(cloudinary_url, headers=headers, stream=True)
         
-    # Redirect to the external Cloudinary URL
-    from django.shortcuts import redirect
-    return redirect(video.video_file.url)
+        # Create streaming response
+        response = StreamingHttpResponse(
+            cloudinary_response.iter_content(chunk_size=8192),
+            content_type=cloudinary_response.headers.get('Content-Type', 'video/mp4')
+        )
+        
+        # Forward important headers
+        if 'Content-Length' in cloudinary_response.headers:
+            response['Content-Length'] = cloudinary_response.headers['Content-Length']
+        if 'Content-Range' in cloudinary_response.headers:
+            response['Content-Range'] = cloudinary_response.headers['Content-Range']
+        if 'Accept-Ranges' in cloudinary_response.headers:
+            response['Accept-Ranges'] = cloudinary_response.headers['Accept-Ranges']
+        
+        response.status_code = cloudinary_response.status_code
+        return response
+        
+    except requests.RequestException as e:
+        raise Http404(f"Error streaming video: {str(e)}")
 
 
 @api_view(['POST'])
