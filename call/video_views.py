@@ -75,9 +75,13 @@ def stream_video(request, video_id):
     # Get the Cloudinary URL
     cloudinary_url = video.video_file.url
 
-    # CLOUDINARY HARDENING: Force H.264 Main 3.1 for proxy stream
-    if 'res.cloudinary.com' in cloudinary_url and '/video/upload/' in cloudinary_url and 'vc_h264' not in cloudinary_url:
-        cloudinary_url = cloudinary_url.replace('/video/upload/', '/video/upload/q_auto,vc_h264:main:3.1/')
+    # CLOUDINARY HARDENING: Force H.264 Baseline 3.0 for proxy stream
+    if 'res.cloudinary.com' in cloudinary_url and '/video/upload/' in cloudinary_url:
+        import re
+        if '/v' in cloudinary_url and re.search(r'/v\d+/', cloudinary_url):
+            cloudinary_url = re.sub(r'/video/upload/.*?(/v\d+/)', r'/video/upload/q_auto,vc_h264:baseline:3.0\1', cloudinary_url)
+        elif 'vc_h264' not in cloudinary_url:
+            cloudinary_url = cloudinary_url.replace('/video/upload/', '/video/upload/q_auto,vc_h264:baseline:3.0/')
     
     # Proxy the request to Cloudinary with range support
     import requests
@@ -195,12 +199,12 @@ def toggle_reaction(request, video_id):
         if reaction.reaction_type == reaction_type:
             # If same reaction, remove it (toggle off)
             reaction.delete()
-            return Response({"status": "removed"}, status=status.HTTP_200_OK)
+            status_code = status.HTTP_200_OK
         else:
             # If different reaction, update it
             reaction.reaction_type = reaction_type
             reaction.save()
-            return Response({"status": "updated", "reaction_type": reaction_type}, status=status.HTTP_200_OK)
+            status_code = status.HTTP_200_OK
     else:
         # Create new reaction
         VideoReaction.objects.create(video=video, user=request.user, reaction_type=reaction_type)
