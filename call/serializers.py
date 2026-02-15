@@ -28,27 +28,27 @@ class GameVideoSerializer(serializers.ModelSerializer):
         read_only_fields = ['views', 'created_at', 'updated_at']
     
     def get_video_url(self, obj):
+        def _harden_url(url):
+            if 'res.cloudinary.com' in url and '/video/upload/' in url:
+                import re
+                # SAFE NASA PROFILE: Baseline 3.0 + 1Mbps Bitrate + Auto Quality
+                safe_profile = 'q_auto,vc_h264:baseline:3.0,br_1m/'
+                if '/v' in url and re.search(r'/v\d+/', url):
+                    # Replace existing transformations if any
+                    return re.sub(r'/video/upload/.*?(/v\d+/)', f'/video/upload/{safe_profile}\\1', url)
+                elif 'vc_h264' not in url:
+                    return url.replace('/video/upload/', f'/video/upload/{safe_profile}')
+            return url
+
         if obj.video_file:
             url = obj.video_file.url
-            # CRITICAL FIX: If the URL already has a scheme (http/https) or is protocol-relative (//),
-            # DO NOT use build_absolute_uri. This prevents the "Double URL" bug.
             if url.startswith(('http:', 'https:', '//')):
-                # CLOUDINARY HARDENING: Force H.264 Baseline Profile 3.0 (Maximum Compatibility)
-                if 'res.cloudinary.com' in url and '/video/upload/' in url:
-                    # Strip any existing transformations and force Baseline 3.0
-                    import re
-                    if '/v' in url and re.search(r'/v\d+/', url):
-                        url = re.sub(r'/video/upload/.*?(/v\d+/)', r'/video/upload/q_auto,vc_h264:baseline:3.0\1', url)
-                    elif 'vc_h264' not in url:
-                        url = url.replace('/video/upload/', '/video/upload/q_auto,vc_h264:baseline:3.0/')
-                return url
+                return _harden_url(url)
             
             request = self.context.get('request')
             if request:
-                absolute_url = request.build_absolute_uri(url)
-                print(f"DEBUG: Serializing Relative Video URL: {url} -> {absolute_url}")
-                return absolute_url
-            return url
+                return _harden_url(request.build_absolute_uri(url))
+            return _harden_url(url)
         return None
     
     def get_thumbnail_url(self, obj):

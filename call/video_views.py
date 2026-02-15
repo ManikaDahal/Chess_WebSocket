@@ -75,7 +75,7 @@ def stream_video(request, video_id):
     # Get the Cloudinary URL
     cloudinary_url = video.video_file.url
 
-    # CLOUDINARY HARDENING: Force H.264 Baseline 3.0 with bitrate cap
+    # CLOUDINARY HARDENING: Force H.264 Baseline 3.0 with 1Mbps bitrate cap
     if 'res.cloudinary.com' in cloudinary_url and '/video/upload/' in cloudinary_url:
         import re
         safe_profile = 'q_auto,vc_h264:baseline:3.0,br_1m/'
