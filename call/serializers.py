@@ -33,15 +33,14 @@ class GameVideoSerializer(serializers.ModelSerializer):
             # CRITICAL FIX: If the URL already has a scheme (http/https) or is protocol-relative (//),
             # DO NOT use build_absolute_uri. This prevents the "Double URL" bug.
             if url.startswith(('http:', 'https:', '//')):
-                # CLOUDINARY HARDENING: Force H.264 Main Profile 3.1 (Optimal for High-Res Hardware)
+                # CLOUDINARY HARDENING: Force H.264 Baseline Profile 3.0 (Maximum Compatibility)
                 if 'res.cloudinary.com' in url and '/video/upload/' in url:
-                    # Strip any existing transformations and force Main 3.1
+                    # Strip any existing transformations and force Baseline 3.0
                     import re
-                    # Replace everything between /video/upload/ and /v[0-9]+/ with our safe profile
                     if '/v' in url and re.search(r'/v\d+/', url):
-                        url = re.sub(r'/video/upload/.*?(/v\d+/)', r'/video/upload/q_auto,vc_h264:main:3.1\1', url)
+                        url = re.sub(r'/video/upload/.*?(/v\d+/)', r'/video/upload/q_auto,vc_h264:baseline:3.0\1', url)
                     elif 'vc_h264' not in url:
-                        url = url.replace('/video/upload/', '/video/upload/q_auto,vc_h264:main:3.1/')
+                        url = url.replace('/video/upload/', '/video/upload/q_auto,vc_h264:baseline:3.0/')
                 return url
             
             request = self.context.get('request')
@@ -65,10 +64,8 @@ class GameVideoSerializer(serializers.ModelSerializer):
         return None
     
     def get_stream_url(self, obj):
-        request = self.context.get('request')
-        if request:
-            return request.build_absolute_uri(f'/api/videos/{obj.id}/stream/')
-        return None
+        # BYPASS PROXY: Serve the hardened Cloudinary URL directly for better hardware performance
+        return self.get_video_url(obj)
 
     def get_reaction_counts(self, obj):
         from django.db.models import Count
