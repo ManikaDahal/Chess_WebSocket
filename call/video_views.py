@@ -75,9 +75,9 @@ def stream_video(request, video_id):
     # Get the Cloudinary URL
     cloudinary_url = video.video_file.url
 
-    # CLOUDINARY HARDENING: Force H.264 Baseline for proxy stream
+    # CLOUDINARY HARDENING: Force H.264 Main 3.1 for proxy stream
     if 'res.cloudinary.com' in cloudinary_url and '/video/upload/' in cloudinary_url and 'vc_h264' not in cloudinary_url:
-        cloudinary_url = cloudinary_url.replace('/video/upload/', '/video/upload/q_auto,vc_h264:baseline:3.0/')
+        cloudinary_url = cloudinary_url.replace('/video/upload/', '/video/upload/q_auto,vc_h264:main:3.1/')
     
     # Proxy the request to Cloudinary with range support
     import requests
@@ -204,4 +204,11 @@ def toggle_reaction(request, video_id):
     else:
         # Create new reaction
         VideoReaction.objects.create(video=video, user=request.user, reaction_type=reaction_type)
-        return Response({"status": "created", "reaction_type": reaction_type}, status=status.HTTP_201_CREATED)
+        status_code = status.HTTP_201_CREATED
+
+    # Refresh counts and user reaction after change
+    serializer = GameVideoSerializer(video, context={'request': request})
+    return Response({
+        "status": "success",
+        "video": serializer.data
+    }, status=status.HTTP_200_OK if 'status_code' not in locals() else status_code)

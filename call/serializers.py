@@ -33,9 +33,9 @@ class GameVideoSerializer(serializers.ModelSerializer):
             # CRITICAL FIX: If the URL already has a scheme (http/https) or is protocol-relative (//),
             # DO NOT use build_absolute_uri. This prevents the "Double URL" bug.
             if url.startswith(('http:', 'https:', '//')):
-                # CLOUDINARY HARDENING: Force H.264 Baseline Profile for sensitive consumers (Xiaomi)
+                # CLOUDINARY HARDENING: Force H.264 Main Profile 3.1 for hardware compliance
                 if 'res.cloudinary.com' in url and '/video/upload/' in url and 'vc_h264' not in url:
-                    url = url.replace('/video/upload/', '/video/upload/q_auto,vc_h264:baseline:3.0/')
+                    url = url.replace('/video/upload/', '/video/upload/q_auto,vc_h264:main:3.1/')
                 return url
             
             request = self.context.get('request')
