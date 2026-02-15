@@ -74,6 +74,10 @@ def stream_video(request, video_id):
     
     # Get the Cloudinary URL
     cloudinary_url = video.video_file.url
+
+    # CLOUDINARY HARDENING: Force H.264 Baseline for proxy stream
+    if 'res.cloudinary.com' in cloudinary_url and '/video/upload/' in cloudinary_url and 'vc_h264' not in cloudinary_url:
+        cloudinary_url = cloudinary_url.replace('/video/upload/', '/video/upload/q_auto,vc_h264:baseline:3.0/')
     
     # Proxy the request to Cloudinary with range support
     import requests
