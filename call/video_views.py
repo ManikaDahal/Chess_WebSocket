@@ -76,13 +76,22 @@ def stream_video(request, video_id):
     cloudinary_url = video.video_file.url
 
     # CLOUDINARY HARDENING: Force H.264 Baseline 3.0 with 1Mbps bitrate cap
-    if 'res.cloudinary.com' in cloudinary_url and '/video/upload/' in cloudinary_url:
-        import re
-        safe_profile = 'q_auto,vc_h264:baseline:3.0,br_1m/'
-        if '/v' in cloudinary_url and re.search(r'/v\d+/', cloudinary_url):
-            cloudinary_url = re.sub(r'/video/upload/.*?(/v\d+/)', f'/video/upload/{safe_profile}\\1', cloudinary_url)
-        elif 'vc_h264' not in cloudinary_url:
-            cloudinary_url = cloudinary_url.replace('/video/upload/', f'/video/upload/{safe_profile}')
+    if '/video/upload/' in cloudinary_url:
+        try:
+            safe_profile = 'q_auto,vc_h264:baseline:3.0,br_1m'
+            from django.conf import settings
+            cloud_name = getattr(settings, 'CLOUDINARY_STORAGE', {}).get('CLOUD_NAME') or "drxgymnwa"
+            base_cloud = f"https://res.cloudinary.com/{cloud_name}"
+            
+            path_part = cloudinary_url.split('/video/upload/')[-1]
+            parts = [p for p in path_part.split('/') if p]
+            new_parts = [safe_profile]
+            version = next((p for p in parts[:-1] if p.startswith('v') and p[1:].isdigit()), None)
+            if version: new_parts.append(version)
+            new_parts.append(parts[-1])
+            cloudinary_url = f"{base_cloud}/video/upload/{'/'.join(new_parts)}"
+        except:
+            pass
     
     # Proxy the request to Cloudinary with range support
     import requests
