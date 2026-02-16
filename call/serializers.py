@@ -29,12 +29,12 @@ class GameVideoSerializer(serializers.ModelSerializer):
     
     def get_video_url(self, obj):
         def _harden_url(url):
-            if not url or '/video/upload/' not in url:
+            if not url or 'video/upload/' not in url:
                 return url
             
-            # ULTRA-SAFE PROFILE: 480p Max + Baseline 2.0 + 500kbps + Auto Quality
-            # Baseline 2.0 is extremely simple for any hardware decoder.
-            safe_profile = 'w_854,h_480,c_limit,q_auto,vc_h264:baseline:2.0,br_500k'
+            # SAFE NASA PROFILE: 480p Max + Baseline 3.0 + 1Mbps + Auto Quality
+            # Baseline 3.0 is standard for SD; Level 2.0 might be failing.
+            safe_profile = 'w_854,h_480,c_limit,q_auto,vc_h264:baseline:3.0,br_1m'
             
             # ABSOLUTE INTERCEPTOR: Force everything to res.cloudinary.com to guarantee transformation works
             # This bypasses local/proxied paths that might be unhardened.
@@ -43,9 +43,11 @@ class GameVideoSerializer(serializers.ModelSerializer):
             base_cloud = f"https://res.cloudinary.com/{cloud_name}"
             
             try:
-                # Extract the path from /video/upload/ onwards
-                path_part = url.split('/video/upload/')[-1]
-                parts = [p for p in path_part.split('/') if p]
+                # Robust Split: Handle both /video/upload/ and video/upload/
+                delimiter = 'video/upload/'
+                base, rest = ("", url) if url.startswith(delimiter) else url.split(delimiter, 1)
+                
+                parts = [p for p in rest.split('/') if p]
                 
                 new_parts = [safe_profile]
                 

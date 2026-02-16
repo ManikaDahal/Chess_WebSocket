@@ -75,16 +75,17 @@ def stream_video(request, video_id):
     # Get the Cloudinary URL
     cloudinary_url = video.video_file.url
 
-    # ULTRA-SAFE HARDENING: Force 480p, H.264 Baseline 2.0, 500kbps
-    if '/video/upload/' in cloudinary_url:
+    # CLOUDINARY HARDENING: Force 480p, H.264 Baseline 3.0, 1Mbps
+    if 'video/upload/' in cloudinary_url:
         try:
-            safe_profile = 'w_854,h_480,c_limit,q_auto,vc_h264:baseline:2.0,br_500k'
+            safe_profile = 'w_854,h_480,c_limit,q_auto,vc_h264:baseline:3.0,br_1m'
             from django.conf import settings
             cloud_name = getattr(settings, 'CLOUDINARY_STORAGE', {}).get('CLOUD_NAME') or "drxgymnwa"
             base_cloud = f"https://res.cloudinary.com/{cloud_name}"
             
-            path_part = cloudinary_url.split('/video/upload/')[-1]
-            parts = [p for p in path_part.split('/') if p]
+            delimiter = 'video/upload/'
+            _, rest = ("", cloudinary_url) if cloudinary_url.startswith(delimiter) else cloudinary_url.split(delimiter, 1)
+            parts = [p for p in rest.split('/') if p]
             new_parts = [safe_profile]
             version = next((p for p in parts[:-1] if p.startswith('v') and p[1:].isdigit()), None)
             if version: new_parts.append(version)
