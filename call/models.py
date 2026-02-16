@@ -101,3 +101,13 @@ class VideoReaction(models.Model):
 
     def __str__(self):
         return f"{self.user} reacted {self.reaction_type} to {self.video}"
+
+class UserVoiceProfile(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='voice_profile')
+    elevenlabs_voice_id = models.CharField(max_length=100, blank=True, null=True)
+    is_trained = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Voice Profile for {self.user.username} (ID: {self.elevenlabs_voice_id or 'None'})"
