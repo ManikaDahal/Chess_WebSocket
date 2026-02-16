@@ -75,10 +75,10 @@ def stream_video(request, video_id):
     # Get the Cloudinary URL
     cloudinary_url = video.video_file.url
 
-    # CLOUDINARY HARDENING: Force H.264 Baseline 3.0 with 1Mbps bitrate cap
+    # ULTRA-SAFE HARDENING: Force 480p, H.264 Baseline 2.0, 500kbps
     if '/video/upload/' in cloudinary_url:
         try:
-            safe_profile = 'q_auto,vc_h264:baseline:3.0,br_1m'
+            safe_profile = 'w_854,h_480,c_limit,q_auto,vc_h264:baseline:2.0,br_500k'
             from django.conf import settings
             cloud_name = getattr(settings, 'CLOUDINARY_STORAGE', {}).get('CLOUD_NAME') or "drxgymnwa"
             base_cloud = f"https://res.cloudinary.com/{cloud_name}"

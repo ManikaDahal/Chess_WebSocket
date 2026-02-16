@@ -32,8 +32,9 @@ class GameVideoSerializer(serializers.ModelSerializer):
             if not url or '/video/upload/' not in url:
                 return url
             
-            # SAFE NASA PROFILE: Baseline 3.0 + 1Mbps Bitrate + Auto Quality
-            safe_profile = 'q_auto,vc_h264:baseline:3.0,br_1m'
+            # ULTRA-SAFE PROFILE: 480p Max + Baseline 2.0 + 500kbps + Auto Quality
+            # Baseline 2.0 is extremely simple for any hardware decoder.
+            safe_profile = 'w_854,h_480,c_limit,q_auto,vc_h264:baseline:2.0,br_500k'
             
             # ABSOLUTE INTERCEPTOR: Force everything to res.cloudinary.com to guarantee transformation works
             # This bypasses local/proxied paths that might be unhardened.
