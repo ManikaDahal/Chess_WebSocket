@@ -55,8 +55,10 @@ class VoiceAIManager:
         
         # files is a list of (name, (filename, file_handle, content_type))
         # This format ensures ElevenLabs gets the correct metadata for each sample
+        # We use None for content_type to let the API or requests guess it
+        import os
         files = [
-            ('files', (getattr(f, 'name', f'sample_{i}.m4a'), f, getattr(f, 'content_type', 'audio/mpeg')))
+            ('files', (os.path.basename(getattr(f, 'name', f'sample_{i}.m4a')), f, None))
             for i, f in enumerate(audio_files)
         ]
         
@@ -71,14 +73,20 @@ class VoiceAIManager:
             
             if response.status_code != 200:
                 print(f"ERROR: ElevenLabs API returned {response.status_code}")
-                print(f"DEBUG: Response body: {response.text}")
+                error_detail = response.text
+                try:
+                    error_json = response.json()
+                    error_detail = error_json.get('detail', {}).get('message', response.text)
+                except:
+                    pass
+                print(f"DEBUG: Error detail: {error_detail}")
+                return None, f"ElevenLabs Error: {error_detail}"
                 
-            response.raise_for_status()
             voice_id = response.json().get('voice_id')
             print(f"DEBUG: Voice created successfully. ID: {voice_id}")
             return voice_id, None
         except Exception as e:
-            error_msg = f"Error creating voice: {str(e)}"
+            error_msg = f"Exception during voice creation: {str(e)}"
             print(f"CRITICAL: {error_msg}")
             return None, error_msg
 
@@ -104,9 +112,14 @@ class VoiceAIManager:
         
         try:
             response = requests.post(url, headers=headers, json=data)
-            response.raise_for_status()
-            # In a real app, you'd save this to storage and return URL
-            # For simplicity, we'll assume the view handles saving the content
+            if response.status_code != 200:
+                error_detail = response.text
+                try:
+                    error_detail = response.json().get('detail', {}).get('message', response.text)
+                except:
+                    pass
+                return None, f"ElevenLabs TTS Error: {error_detail}"
+            
             return response.content, None
         except Exception as e:
-            return None, f"Error synthesizing speech: {str(e)}"
+            return None, f"Exception during speech synthesis: {str(e)}"
