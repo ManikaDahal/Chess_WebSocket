@@ -8,6 +8,7 @@ import uuid
 import hashlib
 from django.db import transaction
 import os
+import threading
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
@@ -30,16 +31,21 @@ def upload_voice_samples(request):
     profile.is_trained = True
     profile.save()
     
-    # 3. (Optional) Still try ElevenLabs if key exists, but don't block on it
-    ai_manager = VoiceAIManager()
+    # 3. (Optional) Still try ElevenLabs if key exists, but do it asynchronously to avoid timeouts
     if os.environ.get('ELEVENLABS_API_KEY'):
-        voice_id, error = ai_manager.create_user_voice(user.username, audio_files)
-        if not error:
-            profile.elevenlabs_voice_id = voice_id
-            profile.save()
+        def train_elevenlabs():
+            ai_manager = VoiceAIManager()
+            # Note: Using filenames to avoid issues with closed file handles
+            v_id, v_err = ai_manager.create_user_voice(user.username, audio_files)
+            if not v_err:
+                profile.elevenlabs_voice_id = v_id
+                profile.save()
+        
+        # Start background training
+        threading.Thread(target=train_elevenlabs).start()
 
     return Response({
-        "message": "Voice profile created successfully",
+        "message": "Voice profile received and reference saved. Training in background.",
         "reference_url": profile.reference_audio.url if profile.reference_audio else None
     })
 
