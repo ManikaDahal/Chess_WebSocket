@@ -88,6 +88,9 @@ def chat_with_self(request):
     # 2. Generate text response
     response_text = ai_manager.generate_response(message)
     
+    if response_text.startswith("Error"):
+        return Response({"error": response_text}, status=500)
+    
     # 3. Audio Generation (from Cache, ElevenLabs, or SiliconFlow)
     audio_url = None
     if cache_entry:
@@ -116,6 +119,7 @@ def chat_with_self(request):
     return Response({
         "text": response_text,
         "audio_url": audio_url,
+        "audio_id": audio_url, # Workaround for original frontend code looking for audio_id
         "is_cached": cache_entry is not None
     })
 
@@ -127,7 +131,9 @@ def get_voice_status(request):
         profile = request.user.voice_profile
         return Response({
             "is_trained": profile.is_trained,
-            "voice_id": profile.elevenlabs_voice_id
+            "voice_id": profile.elevenlabs_voice_id,
+            "has_reference": profile.reference_audio is not None,
+            "reference_url": profile.reference_audio.url if profile.reference_audio else None
         })
     except UserVoiceProfile.DoesNotExist:
         return Response({"is_trained": False})

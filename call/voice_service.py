@@ -28,7 +28,7 @@ class VoiceAIManager:
         )
         
         data = {
-            "model": "llama3-70b-8192",
+            "model": "llama-3.1-8b-instant",
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt}
@@ -39,7 +39,9 @@ class VoiceAIManager:
         
         try:
             response = requests.post(self.GROQ_API_URL, headers=headers, json=data)
-            response.raise_for_status()
+            if response.status_code != 200:
+                print(f"ERROR: Groq API returned {response.status_code}: {response.text}")
+                return f"Error generating text: {response.status_code} - {response.text}"
             return response.json()['choices'][0]['message']['content']
         except Exception as e:
             return f"Error generating text: {str(e)}"
