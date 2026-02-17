@@ -133,6 +133,8 @@ class SiliconFlowManager:
     
     def __init__(self):
         self.api_key = os.environ.get('SILICONFLOW_API_KEY')
+        if self.api_key:
+            self.api_key = self.api_key.strip()
 
     def zero_shot_tts(self, text, reference_audio_url):
         """
@@ -141,6 +143,10 @@ class SiliconFlowManager:
         """
         if not self.api_key:
             return None, "Error: SILICONFLOW_API_KEY not found."
+
+        # Debug print masked key
+        masked_key = f"{self.api_key[:6]}...{self.api_key[-4:]}" if len(self.api_key) > 10 else "***"
+        print(f"DEBUG: Using SiliconFlow Key: {masked_key}")
 
         url = f"{self.API_URL}/audio/speech"
         headers = {
@@ -169,4 +175,5 @@ class SiliconFlowManager:
             error_msg = f"Exception during SiliconFlow TTS: {str(e)}"
             print(f"CRITICAL: {error_msg}")
             return None, error_msg
+
 
