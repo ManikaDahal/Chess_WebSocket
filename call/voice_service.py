@@ -160,10 +160,13 @@ class SiliconFlowManager:
             response = requests.post(url, headers=headers, json=data)
             
             if response.status_code != 200:
-                print(f"ERROR: SiliconFlow API returned {response.status_code}")
-                return None, f"SiliconFlow Error: {response.text}"
+                error_msg = f"SiliconFlow API returned {response.status_code}: {response.text}"
+                print(f"ERROR: {error_msg}")
+                return None, error_msg
                 
             return response.content, None
         except Exception as e:
-            return None, f"Exception during SiliconFlow TTS: {str(e)}"
+            error_msg = f"Exception during SiliconFlow TTS: {str(e)}"
+            print(f"CRITICAL: {error_msg}")
+            return None, error_msg
 

@@ -93,6 +93,8 @@ def chat_with_self(request):
     
     # 3. Audio Generation (from Cache, ElevenLabs, or SiliconFlow)
     audio_url = None
+    synth_error = None
+    
     if cache_entry:
         print(f"DEBUG: Cache hit for message hash {text_hash}")
         audio_url = cache_entry.audio_file.url
@@ -100,11 +102,13 @@ def chat_with_self(request):
         audio_content = None
         # Try ElevenLabs first if previously successful
         if profile.elevenlabs_voice_id:
-            audio_content, error = ai_manager.text_to_speech(response_text, profile.elevenlabs_voice_id)
+            audio_content, synth_error = ai_manager.text_to_speech(response_text, profile.elevenlabs_voice_id)
         
         # Fallback to SiliconFlow (Free/Low Cost)
         if not audio_content and profile.reference_audio:
-            audio_content, error = sf_manager.zero_shot_tts(response_text, profile.reference_audio.url)
+            audio_content, sf_error = sf_manager.zero_shot_tts(response_text, profile.reference_audio.url)
+            if sf_error:
+                synth_error = f"{synth_error} | {sf_error}" if synth_error else sf_error
             
         if audio_content:
             # Save to Cloudinary for caching
@@ -119,8 +123,9 @@ def chat_with_self(request):
     return Response({
         "text": response_text,
         "audio_url": audio_url,
-        "audio_id": audio_url, # Workaround for original frontend code looking for audio_id
-        "is_cached": cache_entry is not None
+        "audio_id": audio_url,
+        "is_cached": cache_entry is not None,
+        "error": synth_error if not audio_url else None
     })
 
 @api_view(['GET'])
