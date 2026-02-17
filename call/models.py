@@ -105,7 +105,8 @@ class VideoReaction(models.Model):
 class UserVoiceProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='voice_profile')
     elevenlabs_voice_id = models.CharField(max_length=100, blank=True, null=True)
-    reference_audio = CloudinaryField('audio', resource_type='video', null=True, blank=True) # Used for SiliconFlow Zero-Shot
+    siliconflow_voice_uri = models.CharField(max_length=255, blank=True, null=True) # Used for SiliconFlow Zero-Shot
+    reference_audio = CloudinaryField('audio', resource_type='video', null=True, blank=True) # Used for fallback/storage
     is_trained = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

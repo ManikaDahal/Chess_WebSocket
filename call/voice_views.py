@@ -29,13 +29,37 @@ def upload_voice_samples(request):
     # CloudinaryField handles the upload automatically when assigned a file object
     profile.reference_audio = audio_files[0]
     profile.is_trained = True
+    
+    # NEW: Also upload to SiliconFlow immediately to get a voice URI
+    # This is required for SiliconFlow Zero-Shot as it doesn't support URLs directly
+    sf_manager = SiliconFlowManager()
+    try:
+        # Reposition file pointer to start before reading
+        audio_files[0].seek(0)
+        audio_content = audio_files[0].read()
+        
+        # Training text is known from the Flutter UI instructions
+        training_text = "Hello, I am training my digital assistant in the Chess Mobile App."
+        
+        uri, error = sf_manager.upload_voice(
+            audio_content, 
+            f"user_{user.id}_{uuid.uuid4().hex[:8]}", 
+            training_text
+        )
+        if uri:
+            profile.siliconflow_voice_uri = uri
+            print(f"DEBUG: Saved SiliconFlow Voice URI to profile: {uri}", flush=True)
+    except Exception as e:
+        print(f"ERROR: Failed to upload voice to SiliconFlow during profile creation: {str(e)}", flush=True)
+
     profile.save()
     
     # 3. (Optional) Still try ElevenLabs if key exists, but do it asynchronously to avoid timeouts
     if os.environ.get('ELEVENLABS_API_KEY'):
         def train_elevenlabs():
             ai_manager = VoiceAIManager()
-            # Note: Using filenames to avoid issues with closed file handles
+            # Note: Re-read files as the pointers might have moved
+            for f in audio_files: f.seek(0)
             v_id, v_err = ai_manager.create_user_voice(user.username, audio_files)
             if not v_err:
                 profile.elevenlabs_voice_id = v_id
@@ -46,7 +70,8 @@ def upload_voice_samples(request):
 
     return Response({
         "message": "Voice profile received and reference saved. Training in background.",
-        "reference_url": profile.reference_audio.url if profile.reference_audio else None
+        "reference_url": profile.reference_audio.url if profile.reference_audio else None,
+        "sf_uri": profile.siliconflow_voice_uri
     })
 
 @api_view(['DELETE'])
@@ -107,7 +132,9 @@ def chat_with_self(request):
         
         # Fallback to SiliconFlow (Free/Low Cost)
         if not audio_content and profile.reference_audio:
-            audio_content, sf_error = sf_manager.zero_shot_tts(response_text, profile.reference_audio.url)
+            # Prefer the uploaded SiliconFlow URI if we have it
+            voice_id = profile.siliconflow_voice_uri or profile.reference_audio.url
+            audio_content, sf_error = sf_manager.zero_shot_tts(response_text, voice_id)
             if sf_error:
                 synth_error = f"{synth_error} | {sf_error}" if synth_error else sf_error
             
@@ -138,6 +165,7 @@ def get_voice_status(request):
         return Response({
             "is_trained": profile.is_trained,
             "voice_id": profile.elevenlabs_voice_id,
+            "sf_uri": profile.siliconflow_voice_uri,
             "has_reference": profile.reference_audio is not None,
             "reference_url": profile.reference_audio.url if profile.reference_audio else None
         })

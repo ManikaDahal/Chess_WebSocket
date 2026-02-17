@@ -137,10 +137,50 @@ class SiliconFlowManager:
             # Strip both whitespace and potential surrounding quotes
             self.api_key = self.api_key.strip().strip('"').strip("'")
 
-    def zero_shot_tts(self, text, reference_audio_url):
+    def upload_voice(self, audio_content, custom_name, transcription_text):
+        """
+        Upload reference audio to SiliconFlow to get a voice URI.
+        transcription_text: The text the user read in the audio sample.
+        """
+        if not self.api_key:
+            return None, "Error: SILICONFLOW_API_KEY not found."
+
+        url = f"{self.API_URL}/uploads/audio/voice"
+        headers = {
+            "Authorization": f"Bearer {self.api_key}"
+        }
+        
+        # Using binary data for multipart upload
+        files = {
+            "file": (f"{custom_name}.mp3", audio_content, "audio/mpeg")
+        }
+        data = {
+            "model": "FunAudioLLM/CosyVoice2-0.5B",
+            "customName": custom_name,
+            "text": transcription_text
+        }
+        
+        try:
+            print(f"DEBUG: Uploading voice to SiliconFlow for: {custom_name}", flush=True)
+            response = requests.post(url, headers=headers, data=data, files=files)
+            
+            if response.status_code != 200:
+                error_msg = f"SiliconFlow Upload Error {response.status_code}: {response.text}"
+                print(f"ERROR: {error_msg}", flush=True)
+                return None, error_msg
+                
+            uri = response.json().get("uri")
+            print(f"DEBUG: SiliconFlow Voice URI: {uri}", flush=True)
+            return uri, None
+        except Exception as e:
+            error_msg = f"Exception during SiliconFlow Voice Upload: {str(e)}"
+            print(f"CRITICAL: {error_msg}", flush=True)
+            return None, error_msg
+
+    def zero_shot_tts(self, text, voice_identifier):
         """
         Synthesize speech using CosyVoice Zero-Shot cloning.
-        reference_audio_url: Cloudinary URL of a recorded sample.
+        voice_identifier: Either a SiliconFlow specifier URI (speech:...) or a preset string.
         """
         if not self.api_key:
             return None, "Error: SILICONFLOW_API_KEY not found."
@@ -149,7 +189,6 @@ class SiliconFlowManager:
         is_sk = self.api_key.startswith("sk-")
         masked_key = f"{self.api_key[:6]}...{self.api_key[-4:]}" if len(self.api_key) > 10 else "***"
         print(f"DEBUG: [SiliconFlow] Using Key: {masked_key} (Starts with sk-: {is_sk})", flush=True)
-
 
         url = f"{self.API_URL}/audio/speech"
         headers = {
@@ -160,12 +199,13 @@ class SiliconFlowManager:
         data = {
             "model": "FunAudioLLM/CosyVoice2-0.5B",
             "input": text,
-            "voice": reference_audio_url, # SiliconFlow dynamic voice support
+            "voice": voice_identifier, # Supports both preset strings and uploaded URIs
             "response_format": "mp3"
         }
+
         
         try:
-            print(f"DEBUG: Requesting SiliconFlow Zero-Shot TTS for voice: {reference_audio_url}", flush=True)
+            print(f"DEBUG: Requesting SiliconFlow Zero-Shot TTS for voice: {voice_identifier}", flush=True)
             response = requests.post(url, headers=headers, json=data)
             
             if response.status_code != 200:
