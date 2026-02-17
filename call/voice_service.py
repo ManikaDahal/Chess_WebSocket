@@ -129,12 +129,13 @@ class VoiceAIManager:
 class SiliconFlowManager:
     """Handles interactions with SiliconFlow (CosyVoice) for free-tier cloning."""
     
-    API_URL = "https://api.siliconflow.cn/v1"
+    API_URL = "https://api.siliconflow.com/v1"
     
     def __init__(self):
         self.api_key = os.environ.get('SILICONFLOW_API_KEY')
         if self.api_key:
-            self.api_key = self.api_key.strip()
+            # Strip both whitespace and potential surrounding quotes
+            self.api_key = self.api_key.strip().strip('"').strip("'")
 
     def zero_shot_tts(self, text, reference_audio_url):
         """
@@ -144,9 +145,11 @@ class SiliconFlowManager:
         if not self.api_key:
             return None, "Error: SILICONFLOW_API_KEY not found."
 
-        # Debug print masked key
+        # Debug print masked key and check for sk- prefix
+        is_sk = self.api_key.startswith("sk-")
         masked_key = f"{self.api_key[:6]}...{self.api_key[-4:]}" if len(self.api_key) > 10 else "***"
-        print(f"DEBUG: Using SiliconFlow Key: {masked_key}")
+        print(f"DEBUG: [SiliconFlow] Using Key: {masked_key} (Starts with sk-: {is_sk})", flush=True)
+
 
         url = f"{self.API_URL}/audio/speech"
         headers = {
@@ -162,18 +165,18 @@ class SiliconFlowManager:
         }
         
         try:
-            print(f"DEBUG: Requesting SiliconFlow Zero-Shot TTS for voice: {reference_audio_url}")
+            print(f"DEBUG: Requesting SiliconFlow Zero-Shot TTS for voice: {reference_audio_url}", flush=True)
             response = requests.post(url, headers=headers, json=data)
             
             if response.status_code != 200:
                 error_msg = f"SiliconFlow API returned {response.status_code}: {response.text}"
-                print(f"ERROR: {error_msg}")
+                print(f"ERROR: {error_msg}", flush=True)
                 return None, error_msg
                 
             return response.content, None
         except Exception as e:
             error_msg = f"Exception during SiliconFlow TTS: {str(e)}"
-            print(f"CRITICAL: {error_msg}")
+            print(f"CRITICAL: {error_msg}", flush=True)
             return None, error_msg
 
 

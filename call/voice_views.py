@@ -67,6 +67,7 @@ def delete_voice_profile(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def chat_with_self(request):
+    print(f"DEBUG: [VOICE] chat_with_self called by {request.user.username}", flush=True)
     user = request.user
     message = request.data.get('message', '').strip()
     
@@ -96,7 +97,7 @@ def chat_with_self(request):
     synth_error = None
     
     if cache_entry:
-        print(f"DEBUG: Cache hit for message hash {text_hash}")
+        print(f"DEBUG: Cache hit for message hash {text_hash}", flush=True)
         audio_url = cache_entry.audio_file.url
     else:
         audio_content = None
