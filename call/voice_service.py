@@ -38,13 +38,22 @@ class VoiceAIManager:
         }
         
         try:
+            print(f"DEBUG: [Groq] Requesting response for prompt: {prompt[:50]}...", flush=True)
             response = requests.post(self.GROQ_API_URL, headers=headers, json=data)
+            
             if response.status_code != 200:
-                print(f"ERROR: Groq API returned {response.status_code}: {response.text}")
-                return f"Error generating text: {response.status_code} - {response.text}"
-            return response.json()['choices'][0]['message']['content']
+                error_msg = f"Groq API Error {response.status_code}: {response.text}"
+                print(f"ERROR: {error_msg}", flush=True)
+                return f"Error: {error_msg}"
+                
+            result = response.json()
+            content = result['choices'][0]['message']['content']
+            print(f"DEBUG: [Groq] Generated response successfully: {content[:50]}...", flush=True)
+            return content
         except Exception as e:
-            return f"Error generating text: {str(e)}"
+            error_msg = f"Exception during Groq generation: {str(e)}"
+            print(f"CRITICAL: {error_msg}", flush=True)
+            return f"Error: {error_msg}"
 
     def create_user_voice(self, user_name, audio_files):
         """Create an Instant Voice Clone on ElevenLabs."""

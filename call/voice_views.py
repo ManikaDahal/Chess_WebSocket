@@ -104,57 +104,64 @@ def chat_with_self(request):
     except UserVoiceProfile.DoesNotExist:
         return Response({"error": "Voice profile not trained."}, status=400)
     
-    # 1. Caching Check: Has this user said this before?
-    text_hash = hashlib.sha256(message.lower().encode()).hexdigest()
-    cache_entry = VoiceResponseCache.objects.filter(user=user, text_hash=text_hash).first()
-    
-    ai_manager = VoiceAIManager()
-    sf_manager = SiliconFlowManager()
-
-    # 2. Generate text response
-    response_text = ai_manager.generate_response(message)
-    
-    if response_text.startswith("Error"):
-        return Response({"error": response_text}, status=500)
-    
-    # 3. Audio Generation (from Cache, ElevenLabs, or SiliconFlow)
-    audio_url = None
-    synth_error = None
-    
-    if cache_entry:
-        print(f"DEBUG: Cache hit for message hash {text_hash}", flush=True)
-        audio_url = cache_entry.audio_file.url
-    else:
-        audio_content = None
-        # Try ElevenLabs first if previously successful
-        if profile.elevenlabs_voice_id:
-            audio_content, synth_error = ai_manager.text_to_speech(response_text, profile.elevenlabs_voice_id)
+    try:
+        # 1. Caching Check: Has this user said this before?
+        text_hash = hashlib.sha256(message.lower().encode()).hexdigest()
+        cache_entry = VoiceResponseCache.objects.filter(user=user, text_hash=text_hash).first()
         
-        # Fallback to SiliconFlow (Free/Low Cost)
-        if not audio_content and profile.reference_audio:
-            # Prefer the uploaded SiliconFlow URI if we have it
-            voice_id = profile.siliconflow_voice_uri or profile.reference_audio.url
-            audio_content, sf_error = sf_manager.zero_shot_tts(response_text, voice_id)
-            if sf_error:
-                synth_error = f"{synth_error} | {sf_error}" if synth_error else sf_error
-            
-        if audio_content:
-            # Save to Cloudinary for caching
-            filename = f"voice_{user.id}_{uuid.uuid4().hex}.mp3"
-            new_cache = VoiceResponseCache.objects.create(
-                user=user,
-                text_hash=text_hash,
-                audio_file=ContentFile(audio_content, name=filename)
-            )
-            audio_url = new_cache.audio_file.url
+        ai_manager = VoiceAIManager()
+        sf_manager = SiliconFlowManager()
 
-    return Response({
-        "text": response_text,
-        "audio_url": audio_url,
-        "audio_id": audio_url,
-        "is_cached": cache_entry is not None,
-        "error": synth_error if not audio_url else None
-    })
+        # 2. Generate text response
+        response_text = ai_manager.generate_response(message)
+        
+        if response_text.startswith("Error"):
+            print(f"ERROR: AI Generation failed: {response_text}", flush=True)
+            return Response({"error": response_text}, status=500)
+        
+        # 3. Audio Generation (from Cache, ElevenLabs, or SiliconFlow)
+        audio_url = None
+        synth_error = None
+        
+        if cache_entry:
+            print(f"DEBUG: Cache hit for message hash {text_hash}", flush=True)
+            audio_url = cache_entry.audio_file.url
+        else:
+            audio_content = None
+            # Try ElevenLabs first if previously successful
+            if profile.elevenlabs_voice_id:
+                audio_content, synth_error = ai_manager.text_to_speech(response_text, profile.elevenlabs_voice_id)
+            
+            # Fallback to SiliconFlow (Free/Low Cost)
+            if not audio_content and profile.reference_audio:
+                # Prefer the uploaded SiliconFlow URI if we have it
+                voice_id = profile.siliconflow_voice_uri or profile.reference_audio.url
+                audio_content, sf_error = sf_manager.zero_shot_tts(response_text, voice_id)
+                if sf_error:
+                    synth_error = f"{synth_error} | {sf_error}" if synth_error else sf_error
+                
+            if audio_content:
+                # Save to Cloudinary for caching
+                filename = f"voice_{user.id}_{uuid.uuid4().hex}.mp3"
+                new_cache = VoiceResponseCache.objects.create(
+                    user=user,
+                    text_hash=text_hash,
+                    audio_file=ContentFile(audio_content, name=filename)
+                )
+                audio_url = new_cache.audio_file.url
+
+        return Response({
+            "text": response_text,
+            "audio_url": audio_url,
+            "audio_id": audio_url,
+            "is_cached": cache_entry is not None,
+            "error": synth_error if not audio_url else None
+        })
+    except Exception as e:
+        print(f"CRITICAL: Unhandled error in chat_with_self: {str(e)}", flush=True)
+        import traceback
+        print(traceback.format_exc(), flush=True)
+        return Response({"error": f"Internal Server Error: {str(e)}"}, status=500)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
