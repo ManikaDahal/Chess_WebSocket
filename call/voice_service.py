@@ -123,3 +123,45 @@ class VoiceAIManager:
             return response.content, None
         except Exception as e:
             return None, f"Exception during speech synthesis: {str(e)}"
+
+class SiliconFlowManager:
+    """Handles interactions with SiliconFlow (CosyVoice) for free-tier cloning."""
+    
+    API_URL = "https://api.siliconflow.cn/v1"
+    
+    def __init__(self):
+        self.api_key = os.environ.get('SILICONFLOW_API_KEY')
+
+    def zero_shot_tts(self, text, reference_audio_url):
+        """
+        Synthesize speech using CosyVoice Zero-Shot cloning.
+        reference_audio_url: Cloudinary URL of a recorded sample.
+        """
+        if not self.api_key:
+            return None, "Error: SILICONFLOW_API_KEY not found."
+
+        url = f"{self.API_URL}/audio/speech"
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        data = {
+            "model": "FunAudioLLM/CosyVoice2-0.5B",
+            "input": text,
+            "voice": reference_audio_url, # SiliconFlow dynamic voice support
+            "response_format": "mp3"
+        }
+        
+        try:
+            print(f"DEBUG: Requesting SiliconFlow Zero-Shot TTS for voice: {reference_audio_url}")
+            response = requests.post(url, headers=headers, json=data)
+            
+            if response.status_code != 200:
+                print(f"ERROR: SiliconFlow API returned {response.status_code}")
+                return None, f"SiliconFlow Error: {response.text}"
+                
+            return response.content, None
+        except Exception as e:
+            return None, f"Exception during SiliconFlow TTS: {str(e)}"
+

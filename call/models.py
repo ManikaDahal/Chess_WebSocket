@@ -105,9 +105,24 @@ class VideoReaction(models.Model):
 class UserVoiceProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='voice_profile')
     elevenlabs_voice_id = models.CharField(max_length=100, blank=True, null=True)
+    reference_audio = CloudinaryField('audio', resource_type='video', null=True, blank=True) # Used for SiliconFlow Zero-Shot
     is_trained = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Voice Profile for {self.user.username} (ID: {self.elevenlabs_voice_id or 'None'})"
+        return f"Voice Profile for {self.user.username}"
+
+class VoiceResponseCache(models.Model):
+    """Caches synthesized audio to prevent redundant API calls"""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    text_hash = models.CharField(max_length=64, db_index=True) # SHA-256 of text
+    audio_file = CloudinaryField('audio', resource_type='video')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'text_hash')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Cache for {self.user.username} - {self.text_hash[:8]}"
