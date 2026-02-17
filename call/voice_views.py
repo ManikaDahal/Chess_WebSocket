@@ -21,9 +21,8 @@ def upload_voice_samples(request):
         
     ai_manager = VoiceAIManager()
     
-    # Files need to be in a format ElevenLabs accepts (file handles)
-    # ElevenLabs 'add voice' expects binary files.
-    voice_id, error = ai_manager.create_user_voice(user.username, [f.file for f in audio_files])
+    # Pass the full UploadedFile objects so the service can access metadata like name and content_type
+    voice_id, error = ai_manager.create_user_voice(user.username, audio_files)
     
     if error:
         return Response({"error": error}, status=500)

@@ -47,13 +47,18 @@ class VoiceAIManager:
     def create_user_voice(self, user_name, audio_files):
         """Create an Instant Voice Clone on ElevenLabs."""
         if not self.elevenlabs_key:
+            print("ERROR: ELEVENLABS_API_KEY is missing from environment variables.")
             return None, "Error: ELEVENLABS_API_KEY not found."
             
         url = f"{self.ELEVENLABS_API_URL}/voices/add"
         headers = {"xi-api-key": self.elevenlabs_key}
         
-        # files is a list of (name, file_handle)
-        files = [('files', f) for f in audio_files]
+        # files is a list of (name, (filename, file_handle, content_type))
+        # This format ensures ElevenLabs gets the correct metadata for each sample
+        files = [
+            ('files', (getattr(f, 'name', f'sample_{i}.m4a'), f, getattr(f, 'content_type', 'audio/mpeg')))
+            for i, f in enumerate(audio_files)
+        ]
         
         data = {
             'name': f"User_{user_name}",
@@ -61,11 +66,21 @@ class VoiceAIManager:
         }
         
         try:
+            print(f"DEBUG: Sending {len(files)} samples to ElevenLabs for user {user_name}")
             response = requests.post(url, headers=headers, data=data, files=files)
+            
+            if response.status_code != 200:
+                print(f"ERROR: ElevenLabs API returned {response.status_code}")
+                print(f"DEBUG: Response body: {response.text}")
+                
             response.raise_for_status()
-            return response.json()['voice_id'], None
+            voice_id = response.json().get('voice_id')
+            print(f"DEBUG: Voice created successfully. ID: {voice_id}")
+            return voice_id, None
         except Exception as e:
-            return None, f"Error creating voice: {str(e)}"
+            error_msg = f"Error creating voice: {str(e)}"
+            print(f"CRITICAL: {error_msg}")
+            return None, error_msg
 
     def text_to_speech(self, text, voice_id):
         """Synthesize speech using ElevenLabs."""
