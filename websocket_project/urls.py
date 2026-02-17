@@ -11,7 +11,7 @@ from django.views.static import serve
 
 from call.views import chat_history, get_or_create_private_room, send_invite, accept_invite, decline_invite, pending_invites
 from call.video_views import list_videos, get_video_detail, stream_video, upload_video, delete_video, video_comments, toggle_reaction
-from call.voice_views import upload_voice_samples, chat_with_self, get_voice_status
+from call.voice_views import upload_voice_samples, chat_with_self, get_voice_status, delete_voice_profile
 
 def home(request):
     return HttpResponse("WebSocket is running successfully ")
@@ -39,6 +39,8 @@ urlpatterns = [
     path('api/voice/upload-samples/', upload_voice_samples, name='upload_voice_samples'),
     path('api/voice/chat-self/', chat_with_self, name='chat_with_self'),
     path('api/voice/status/', get_voice_status, name='get_voice_status'),
+    path('api/voice/delete-profile/', delete_voice_profile, name='delete_voice_profile'),
+
     
     path('', home),
     # Serve media files (videos, thumbnails) in PRODUCTION
