@@ -2,6 +2,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.core.files.base import ContentFile
+from django.core.files.uploadedfile import SimpleUploadedFile
 from .models import UserVoiceProfile, VoiceResponseCache
 from .voice_service import VoiceAIManager, SiliconFlowManager
 import uuid
@@ -140,15 +141,18 @@ def chat_with_self(request):
                 if sf_error:
                     synth_error = f"{synth_error} | {sf_error}" if synth_error else sf_error
                 
-            if audio_content:
-                # Save to Cloudinary for caching
-                filename = f"voice_{user.id}_{uuid.uuid4().hex}.mp3"
-                new_cache = VoiceResponseCache.objects.create(
-                    user=user,
-                    text_hash=text_hash,
-                    audio_file=ContentFile(audio_content, name=filename)
-                )
-                audio_url = new_cache.audio_file.url
+        if audio_content:
+            # Save to Cloudinary for caching
+            filename = f"voice_{user.id}_{uuid.uuid4().hex}.mp3"
+            # Use SimpleUploadedFile to avoid 'can't adapt type ContentFile' error with psycopg2/Cloudinary
+            audio_file = SimpleUploadedFile(filename, audio_content, content_type="audio/mpeg")
+            
+            new_cache = VoiceResponseCache.objects.create(
+                user=user,
+                text_hash=text_hash,
+                audio_file=audio_file
+            )
+            audio_url = new_cache.audio_file.url
 
         return Response({
             "text": response_text,
