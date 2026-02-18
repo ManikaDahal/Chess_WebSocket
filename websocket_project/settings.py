@@ -18,8 +18,8 @@ DEBUG = True # os.environ.get('DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = [
     '.onrender.com',
+    '.koyeb.app',  # Support for Koyeb
     'localhost',
-    '127.0.0.1',
     '127.0.0.1',
 ]
 
@@ -29,6 +29,10 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 CSRF_TRUSTED_ORIGINS = [
     'https://chess-websocket-dor6.onrender.com',
 ]
+# Allow adding dynamic origins via environment variable
+extra_origins = os.environ.get('EXTRA_CSRF_TRUSTED_ORIGINS')
+if extra_origins:
+    CSRF_TRUSTED_ORIGINS.extend(extra_origins.split(','))
 
 # Application definition
 INSTALLED_APPS = [
