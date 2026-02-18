@@ -112,6 +112,7 @@ def chat_with_self(request):
         
         ai_manager = VoiceAIManager()
         sf_manager = SiliconFlowManager()
+        xtts_manager = CoquiXTTSManager()
 
         # 2. Generate text response
         response_text = ai_manager.generate_response(message)
@@ -120,7 +121,7 @@ def chat_with_self(request):
             print(f"ERROR: AI Generation failed: {response_text}", flush=True)
             return Response({"error": response_text}, status=500)
         
-        # 3. Audio Generation (from Cache, ElevenLabs, or SiliconFlow)
+        # 3. Audio Generation (from Cache, ElevenLabs, SiliconFlow, or Local XTTS)
         audio_url = None
         synth_error = None
         
@@ -129,12 +130,25 @@ def chat_with_self(request):
             audio_url = cache_entry.audio_file.url
         else:
             audio_content = None
-            # Try ElevenLabs first if previously successful
-            if profile.elevenlabs_voice_id:
+            
+            # Use Local XTTS if mode is local
+            if ai_manager.ai_mode == 'local' and profile.reference_audio:
+                try:
+                    print(f"DEBUG: [Local] Fetching reference audio from {profile.reference_audio.url}", flush=True)
+                    ref_response = requests.get(profile.reference_audio.url)
+                    if ref_response.status_code == 200:
+                        audio_content, synth_error = xtts_manager.synthesize(response_text, ref_response.content)
+                    else:
+                        synth_error = f"Failed to download reference audio: {ref_response.status_code}"
+                except Exception as e:
+                    synth_error = f"Error during local synthesis prep: {str(e)}"
+
+            # Try ElevenLabs first if previously successful and not in local mode
+            if not audio_content and ai_manager.ai_mode != 'local' and profile.elevenlabs_voice_id:
                 audio_content, synth_error = ai_manager.text_to_speech(response_text, profile.elevenlabs_voice_id)
             
             # Fallback to SiliconFlow (Free/Low Cost)
-            if not audio_content and profile.reference_audio:
+            if not audio_content and ai_manager.ai_mode != 'local' and profile.reference_audio:
                 # Prefer the uploaded SiliconFlow URI if we have it
                 voice_id = profile.siliconflow_voice_uri or profile.reference_audio.url
                 audio_content, sf_error = sf_manager.zero_shot_tts(response_text, voice_id)

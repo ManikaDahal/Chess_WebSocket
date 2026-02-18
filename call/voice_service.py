@@ -8,14 +8,101 @@ class VoiceAIManager:
     GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
     ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1"
     
+class OllamaManager:
+    """Handles interactions with a local Ollama instance."""
+    
+    def __init__(self):
+        self.base_url = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')
+        self.model = os.environ.get('OLLAMA_MODEL', 'phi3')
+
+    def generate_response(self, prompt, system_prompt=None):
+        """Generate text response using Ollama."""
+        url = f"{self.base_url}/api/chat"
+        
+        if not system_prompt:
+            system_prompt = (
+                "You are the user's digital twin. You should respond in a way that sounds like the user reflecting on themselves. "
+                "Keep responses concise and empathetic."
+            )
+            
+        data = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt}
+            ],
+            "stream": False,
+            "options": {
+                "temperature": 0.7,
+                "num_predict": 150
+            }
+        }
+        
+        try:
+            print(f"DEBUG: [Ollama] Requesting response from {url} using {self.model}", flush=True)
+            response = requests.post(url, json=data, timeout=30)
+            
+            if response.status_code != 200:
+                print(f"ERROR: Ollama API Error {response.status_code}: {response.text}", flush=True)
+                return f"Error: Ollama failed with status {response.status_code}"
+                
+            result = response.json()
+            return result['message']['content']
+        except Exception as e:
+            print(f"CRITICAL: Exception during Ollama generation: {str(e)}", flush=True)
+            return f"Error: {str(e)}"
+
+class CoquiXTTSManager:
+    """Handles interactions with a local Coqui XTTS API server."""
+    
+    def __init__(self):
+        self.base_url = os.environ.get('XTTS_BASE_URL', 'http://localhost:8020')
+
+    def synthesize(self, text, reference_audio_content):
+        """
+        Synthesize speech using zero-shot cloning on XTTS.
+        reference_audio_content: Binary content of the user's voice sample.
+        """
+        url = f"{self.base_url}/tts/generate"
+        
+        # Format for xtts-api-server (common community implementation)
+        files = {
+            'speaker_wav': ('reference.wav', reference_audio_content, 'audio/wav')
+        }
+        data = {
+            'text': text,
+            'language': 'en'
+        }
+        
+        try:
+            print(f"DEBUG: [XTTS] Sending synthesis request to {url}", flush=True)
+            # Synthesis on CPU takes time, increase timeout
+            response = requests.post(url, data=data, files=files, timeout=120)
+            
+            if response.status_code != 200:
+                print(f"ERROR: XTTS API Error {response.status_code}: {response.text}", flush=True)
+                return None, f"XTTS failed with status {response.status_code}"
+            
+            return response.content, None
+        except Exception as e:
+            print(f"CRITICAL: Exception during XTTS synthesis: {str(e)}", flush=True)
+            return None, str(e)
+
+class VoiceAIManager:
+    """Handles interactions with Groq, Ollama, and ElevenLabs."""
+    
+    GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+    ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1"
+    
     def __init__(self):
         self.groq_key = os.environ.get('GROQ_API_KEY')
         self.elevenlabs_key = os.environ.get('ELEVENLABS_API_KEY')
+        self.ai_mode = os.environ.get('AI_MODE', 'cloud') # 'cloud' or 'local'
 
     def generate_response(self, prompt, context=""):
-        """Generate text response using Llama 3 via Groq."""
-        if not self.groq_key:
-            return "Error: GROQ_API_KEY not found."
+        """Generate text response using the configured engine."""
+        if self.ai_mode == 'local' or not self.groq_key:
+            return OllamaManager().generate_response(prompt)
             
         headers = {
             "Authorization": f"Bearer {self.groq_key}",
@@ -44,16 +131,16 @@ class VoiceAIManager:
             if response.status_code != 200:
                 error_msg = f"Groq API Error {response.status_code}: {response.text}"
                 print(f"ERROR: {error_msg}", flush=True)
-                return f"Error: {error_msg}"
+                # Fallback to local if cloud fails
+                return OllamaManager().generate_response(prompt)
                 
             result = response.json()
             content = result['choices'][0]['message']['content']
             print(f"DEBUG: [Groq] Generated response successfully: {content[:50]}...", flush=True)
             return content
         except Exception as e:
-            error_msg = f"Exception during Groq generation: {str(e)}"
-            print(f"CRITICAL: {error_msg}", flush=True)
-            return f"Error: {error_msg}"
+            print(f"CRITICAL: Exception during Groq generation: {str(e)}", flush=True)
+            return OllamaManager().generate_response(prompt)
 
     def create_user_voice(self, user_name, audio_files):
         """Create an Instant Voice Clone on ElevenLabs."""
@@ -64,10 +151,6 @@ class VoiceAIManager:
         url = f"{self.ELEVENLABS_API_URL}/voices/add"
         headers = {"xi-api-key": self.elevenlabs_key}
         
-        # files is a list of (name, (filename, file_handle, content_type))
-        # This format ensures ElevenLabs gets the correct metadata for each sample
-        # We use None for content_type to let the API or requests guess it
-        import os
         files = [
             ('files', (os.path.basename(getattr(f, 'name', f'sample_{i}.m4a')), f, None))
             for i, f in enumerate(audio_files)
@@ -90,16 +173,12 @@ class VoiceAIManager:
                     error_detail = error_json.get('detail', {}).get('message', response.text)
                 except:
                     pass
-                print(f"DEBUG: Error detail: {error_detail}")
                 return None, f"ElevenLabs Error: {error_detail}"
                 
             voice_id = response.json().get('voice_id')
-            print(f"DEBUG: Voice created successfully. ID: {voice_id}")
             return voice_id, None
         except Exception as e:
-            error_msg = f"Exception during voice creation: {str(e)}"
-            print(f"CRITICAL: {error_msg}")
-            return None, error_msg
+            return None, str(e)
 
     def text_to_speech(self, text, voice_id):
         """Synthesize speech using ElevenLabs."""
@@ -124,16 +203,11 @@ class VoiceAIManager:
         try:
             response = requests.post(url, headers=headers, json=data)
             if response.status_code != 200:
-                error_detail = response.text
-                try:
-                    error_detail = response.json().get('detail', {}).get('message', response.text)
-                except:
-                    pass
-                return None, f"ElevenLabs TTS Error: {error_detail}"
+                return None, f"ElevenLabs TTS Error: {response.text}"
             
             return response.content, None
         except Exception as e:
-            return None, f"Exception during speech synthesis: {str(e)}"
+            return None, str(e)
 
 class SiliconFlowManager:
     """Handles interactions with SiliconFlow (CosyVoice) for free-tier cloning."""
@@ -143,26 +217,16 @@ class SiliconFlowManager:
     def __init__(self):
         self.api_key = os.environ.get('SILICONFLOW_API_KEY')
         if self.api_key:
-            # Strip both whitespace and potential surrounding quotes
             self.api_key = self.api_key.strip().strip('"').strip("'")
 
     def upload_voice(self, audio_content, custom_name, transcription_text):
-        """
-        Upload reference audio to SiliconFlow to get a voice URI.
-        transcription_text: The text the user read in the audio sample.
-        """
         if not self.api_key:
             return None, "Error: SILICONFLOW_API_KEY not found."
 
         url = f"{self.API_URL}/uploads/audio/voice"
-        headers = {
-            "Authorization": f"Bearer {self.api_key}"
-        }
+        headers = {"Authorization": f"Bearer {self.api_key}"}
         
-        # Using binary data for multipart upload
-        files = {
-            "file": (f"{custom_name}.mp3", audio_content, "audio/mpeg")
-        }
+        files = {"file": (f"{custom_name}.mp3", audio_content, "audio/mpeg")}
         data = {
             "model": "FunAudioLLM/CosyVoice2-0.5B",
             "customName": custom_name,
@@ -170,34 +234,18 @@ class SiliconFlowManager:
         }
         
         try:
-            print(f"DEBUG: Uploading voice to SiliconFlow for: {custom_name}", flush=True)
             response = requests.post(url, headers=headers, data=data, files=files)
-            
             if response.status_code != 200:
-                error_msg = f"SiliconFlow Upload Error {response.status_code}: {response.text}"
-                print(f"ERROR: {error_msg}", flush=True)
-                return None, error_msg
+                return None, response.text
                 
             uri = response.json().get("uri")
-            print(f"DEBUG: SiliconFlow Voice URI: {uri}", flush=True)
             return uri, None
         except Exception as e:
-            error_msg = f"Exception during SiliconFlow Voice Upload: {str(e)}"
-            print(f"CRITICAL: {error_msg}", flush=True)
-            return None, error_msg
+            return None, str(e)
 
     def zero_shot_tts(self, text, voice_identifier):
-        """
-        Synthesize speech using CosyVoice Zero-Shot cloning.
-        voice_identifier: Either a SiliconFlow specifier URI (speech:...) or a preset string.
-        """
         if not self.api_key:
             return None, "Error: SILICONFLOW_API_KEY not found."
-
-        # Debug print masked key and check for sk- prefix
-        is_sk = self.api_key.startswith("sk-")
-        masked_key = f"{self.api_key[:6]}...{self.api_key[-4:]}" if len(self.api_key) > 10 else "***"
-        print(f"DEBUG: [SiliconFlow] Using Key: {masked_key} (Starts with sk-: {is_sk})", flush=True)
 
         url = f"{self.API_URL}/audio/speech"
         headers = {
@@ -208,24 +256,16 @@ class SiliconFlowManager:
         data = {
             "model": "FunAudioLLM/CosyVoice2-0.5B",
             "input": text,
-            "voice": voice_identifier, # Supports both preset strings and uploaded URIs
+            "voice": voice_identifier,
             "response_format": "mp3"
         }
-
         
         try:
-            print(f"DEBUG: Requesting SiliconFlow Zero-Shot TTS for voice: {voice_identifier}", flush=True)
             response = requests.post(url, headers=headers, json=data)
-            
             if response.status_code != 200:
-                error_msg = f"SiliconFlow API returned {response.status_code}: {response.text}"
-                print(f"ERROR: {error_msg}", flush=True)
-                return None, error_msg
-                
+                return None, response.text
             return response.content, None
         except Exception as e:
-            error_msg = f"Exception during SiliconFlow TTS: {str(e)}"
-            print(f"CRITICAL: {error_msg}", flush=True)
-            return None, error_msg
+            return None, str(e)
 
 
