@@ -1,6 +1,7 @@
 import os
 import requests
 from django.conf import settings
+import base64
 
     
 class OllamaManager:
@@ -58,31 +59,54 @@ class CoquiXTTSManager:
         Synthesize speech using zero-shot cloning on XTTS.
         reference_audio_content: Binary content of the user's voice sample.
         """
-        url = f"{self.base_url}/tts_to_audio"
+        # We'll try both common endpoints
+        endpoints = ["/tts_to_audio", "/tts"]
         
-        # Format for xtts-api-server (common community implementation)
-        files = {
-            'speaker_wav': ('reference.wav', reference_audio_content, 'audio/wav')
-        }
-        data = {
-            'text': text,
-            'language': 'en'
-        }
+        # Base64 encode the speaker audio for JSON requests
+        speaker_b64 = base64.b64encode(reference_audio_content).decode('utf-8')
         
-        try:
-            print(f"DEBUG: [XTTS] Sending synthesis request to {url}", flush=True)
-            # Synthesis on CPU takes time, increase timeout
-            response = requests.post(url, data=data, files=files, timeout=120)
+        last_error = "Unknown error"
+        
+        for endpoint in endpoints:
+            url = f"{self.base_url}{endpoint}"
+            print(f"DEBUG: [XTTS] Trying synthesis at {url}...", flush=True)
             
-            if response.status_code != 200:
-                error_body = response.text
-                print(f"ERROR: XTTS API Error {response.status_code}: {error_body}", flush=True)
-                return None, f"XTTS failed with status {response.status_code}: {error_body[:100]}"
+            # Try JSON approach first (most modern versions expect this)
+            payload = {
+                "text": text,
+                "language": "en",
+                "speaker_wav": speaker_b64
+            }
             
-            return response.content, None
-        except Exception as e:
-            print(f"CRITICAL: Exception during XTTS synthesis: {str(e)}", flush=True)
-            return None, str(e)
+            try:
+                response = requests.post(url, json=payload, timeout=120)
+                
+                if response.status_code == 200:
+                    print(f"DEBUG: [XTTS] Success at {url} (JSON)", flush=True)
+                    return response.content, None
+                
+                # If 405 (Method Not Allowed) or 422 (Unprocessable Entity), 
+                # maybe it expects files instead of JSON? Fallback below.
+                print(f"DEBUG: [XTTS] {url} (JSON) failed with {response.status_code}", flush=True)
+                last_error = f"{endpoint}: {response.text}"
+
+                # Try Multipart fallback for this endpoint
+                files = {'speaker_wav': ('reference.wav', reference_audio_content, 'audio/wav')}
+                data = {'text': text, 'language': 'en'}
+                response = requests.post(url, data=data, files=files, timeout=120)
+                
+                if response.status_code == 200:
+                    print(f"DEBUG: [XTTS] Success at {url} (Multipart)", flush=True)
+                    return response.content, None
+                
+                print(f"DEBUG: [XTTS] {url} (Multipart) failed with {response.status_code}", flush=True)
+                last_error = f"{endpoint}: {response.text}"
+
+            except Exception as e:
+                print(f"ERROR: [XTTS] Exception at {url}: {str(e)}", flush=True)
+                last_error = str(e)
+                
+        return None, f"XTTS failed on all attempts: {last_error[:100]}"
 
 class VoiceAIManager:
     """Handles interactions with Groq, Ollama, and ElevenLabs."""
