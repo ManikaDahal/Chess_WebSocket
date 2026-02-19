@@ -2,11 +2,6 @@ import os
 import requests
 from django.conf import settings
 
-class VoiceAIManager:
-    """Handles interactions with Groq (Llama 3) and ElevenLabs."""
-    
-    GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-    ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1"
     
 class OllamaManager:
     """Handles interactions with a local Ollama instance."""
@@ -217,8 +212,10 @@ class SiliconFlowManager:
     
     def __init__(self):
         self.api_key = os.environ.get('SILICONFLOW_API_KEY')
-        if self.api_key:
-            self.api_key = self.api_key.strip().strip('"').strip("'")
+        if isinstance(self.api_key, str):
+            self.api_key = self.api_key.strip().strip('"').strip("'").strip()
+        else:
+            self.api_key = None
 
     def upload_voice(self, audio_content, custom_name, transcription_text):
         if not self.api_key:
@@ -268,5 +265,4 @@ class SiliconFlowManager:
             return response.content, None
         except Exception as e:
             return None, str(e)
-
 
