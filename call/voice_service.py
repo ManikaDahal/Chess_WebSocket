@@ -80,8 +80,9 @@ class CoquiXTTSManager:
             response = requests.post(url, data=data, files=files, timeout=120)
             
             if response.status_code != 200:
-                print(f"ERROR: XTTS API Error {response.status_code}: {response.text}", flush=True)
-                return None, f"XTTS failed with status {response.status_code}"
+                error_body = response.text
+                print(f"ERROR: XTTS API Error {response.status_code}: {error_body}", flush=True)
+                return None, f"XTTS failed with status {response.status_code}: {error_body[:100]}"
             
             return response.content, None
         except Exception as e:
