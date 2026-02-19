@@ -10,6 +10,7 @@ import hashlib
 from django.db import transaction
 import os
 import threading
+import requests
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
