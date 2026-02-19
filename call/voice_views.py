@@ -54,6 +54,9 @@ def upload_voice_samples(request):
     except Exception as e:
         print(f"ERROR: Failed to upload voice to SiliconFlow during profile creation: {str(e)}", flush=True)
 
+    # CRITICAL: Reset file pointer again before profile.save() 
+    # This ensures Cloudinary can read the file correctly
+    audio_files[0].seek(0)
     profile.save()
     
     # 3. (Optional) Still try ElevenLabs if key exists, but do it asynchronously to avoid timeouts

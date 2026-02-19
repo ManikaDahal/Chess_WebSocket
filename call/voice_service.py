@@ -164,10 +164,14 @@ class VoiceAIManager:
         url = f"{self.ELEVENLABS_API_URL}/voices/add"
         headers = {"xi-api-key": self.elevenlabs_key}
         
-        files = [
-            ('files', (os.path.basename(getattr(f, 'name', f'sample_{i}.m4a')), f, None))
-            for i, f in enumerate(audio_files)
-        ]
+        files = []
+        for i, f in enumerate(audio_files):
+            # Ensure pointer is at start
+            f.seek(0)
+            # Detect extension from filename or default to wav
+            orig_name = getattr(f, 'name', f'sample_{i}.wav')
+            ext = 'wav' if orig_name.endswith('.wav') else 'm4a'
+            files.append(('files', (f'sample_{i}.{ext}', f, f'audio/{ext}')))
         
         data = {
             'name': f"User_{user_name}",
@@ -234,14 +238,17 @@ class SiliconFlowManager:
         else:
             self.api_key = None
 
-    def upload_voice(self, audio_content, custom_name, transcription_text):
+    def upload_voice(self, audio_content, custom_name, transcription_text, is_wav=True):
         if not self.api_key:
             return None, "Error: SILICONFLOW_API_KEY not found."
 
         url = f"{self.API_URL}/uploads/audio/voice"
         headers = {"Authorization": f"Bearer {self.api_key}"}
         
-        files = {"file": (f"{custom_name}.mp3", audio_content, "audio/mpeg")}
+        ext = "wav" if is_wav else "mp3"
+        mimetype = "audio/wav" if is_wav else "audio/mpeg"
+        
+        files = {"file": (f"{custom_name}.{ext}", audio_content, mimetype)}
         data = {
             "model": "FunAudioLLM/CosyVoice2-0.5B",
             "customName": custom_name,
