@@ -65,48 +65,41 @@ class CoquiXTTSManager:
         # Base64 encode the speaker audio for JSON requests
         speaker_b64 = base64.b64encode(reference_audio_content).decode('utf-8')
         
-        last_error = "Unknown error"
+        all_errors = []
         
         for endpoint in endpoints:
             url = f"{self.base_url}{endpoint}"
             print(f"DEBUG: [XTTS] Trying synthesis at {url}...", flush=True)
             
-            # Try JSON approach first (most modern versions expect this)
+            # --- ATTEMPT 1: JSON with Base64 ---
             payload = {
                 "text": text,
                 "language": "en",
                 "speaker_wav": speaker_b64
             }
-            
             try:
                 response = requests.post(url, json=payload, timeout=120)
-                
                 if response.status_code == 200:
                     print(f"DEBUG: [XTTS] Success at {url} (JSON)", flush=True)
                     return response.content, None
-                
-                # If 405 (Method Not Allowed) or 422 (Unprocessable Entity), 
-                # maybe it expects files instead of JSON? Fallback below.
-                print(f"DEBUG: [XTTS] {url} (JSON) failed with {response.status_code}", flush=True)
-                last_error = f"{endpoint}: {response.text}"
+                all_errors.append(f"{endpoint} (JSON): {response.status_code} - {response.text[:50]}")
+            except Exception as e:
+                all_errors.append(f"{endpoint} (JSON) Exception: {str(e)}")
 
-                # Try Multipart fallback for this endpoint
-                files = {'speaker_wav': ('reference.wav', reference_audio_content, 'audio/wav')}
-                data = {'text': text, 'language': 'en'}
+            # --- ATTEMPT 2: Multipart Form-Data ---
+            files = {'speaker_wav': ('reference.wav', reference_audio_content, 'audio/wav')}
+            data = {'text': text, 'language': 'en'}
+            try:
                 response = requests.post(url, data=data, files=files, timeout=120)
-                
                 if response.status_code == 200:
                     print(f"DEBUG: [XTTS] Success at {url} (Multipart)", flush=True)
                     return response.content, None
-                
-                print(f"DEBUG: [XTTS] {url} (Multipart) failed with {response.status_code}", flush=True)
-                last_error = f"{endpoint}: {response.text}"
-
+                all_errors.append(f"{endpoint} (Multipart): {response.status_code} - {response.text[:50]}")
             except Exception as e:
-                print(f"ERROR: [XTTS] Exception at {url}: {str(e)}", flush=True)
-                last_error = str(e)
-                
-        return None, f"XTTS failed on all attempts: {last_error[:100]}"
+                all_errors.append(f"{endpoint} (Multipart) Exception: {str(e)}")
+
+        error_message = " | ".join(all_errors)
+        return None, f"XTTS failed: {error_message[:200]}"
 
 class VoiceAIManager:
     """Handles interactions with Groq, Ollama, and ElevenLabs."""
