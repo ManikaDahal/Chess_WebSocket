@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from .models import UserVoiceProfile, VoiceResponseCache
-from .voice_service import VoiceAIManager, SiliconFlowManager
+from .voice_service import VoiceAIManager, SiliconFlowManager, CoquiXTTSManager
 import uuid
 import hashlib
 from django.db import transaction
