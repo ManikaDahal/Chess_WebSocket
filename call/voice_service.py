@@ -40,7 +40,7 @@ class OllamaManager:
         
         try:
             print(f"DEBUG: [Ollama] Requesting response from {url} using {self.model}", flush=True)
-            response = requests.post(url, json=data, timeout=30)
+            response = requests.post(url, json=data, timeout=120)
             
             if response.status_code != 200:
                 print(f"ERROR: Ollama API Error {response.status_code}: {response.text}", flush=True)
