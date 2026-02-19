@@ -63,7 +63,7 @@ class CoquiXTTSManager:
         Synthesize speech using zero-shot cloning on XTTS.
         reference_audio_content: Binary content of the user's voice sample.
         """
-        url = f"{self.base_url}/tts/generate"
+        url = f"{self.base_url}/tts_to_audio"
         
         # Format for xtts-api-server (common community implementation)
         files = {

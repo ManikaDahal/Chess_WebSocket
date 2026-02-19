@@ -131,17 +131,21 @@ def chat_with_self(request):
         else:
             audio_content = None
             
-            # Use Local XTTS if mode is local
-            if ai_manager.ai_mode == 'local' and profile.reference_audio:
+            # Use Local XTTS if XTTS_BASE_URL env is set (works with AI_MODE=local OR as auto-fallback)
+            xtts_url = os.environ.get('XTTS_BASE_URL', '')
+            if xtts_url and profile.reference_audio:
                 try:
-                    print(f"DEBUG: [Local] Fetching reference audio from {profile.reference_audio.url}", flush=True)
-                    ref_response = requests.get(profile.reference_audio.url)
+                    print(f"DEBUG: [XTTS] Fetching reference audio from {profile.reference_audio.url}", flush=True)
+                    ref_response = requests.get(profile.reference_audio.url, timeout=30)
                     if ref_response.status_code == 200:
                         audio_content, synth_error = xtts_manager.synthesize(response_text, ref_response.content)
+                        print(f"DEBUG: [XTTS] Synthesis result — content={bool(audio_content)}, error={synth_error}", flush=True)
                     else:
                         synth_error = f"Failed to download reference audio: {ref_response.status_code}"
+                        print(f"ERROR: [XTTS] {synth_error}", flush=True)
                 except Exception as e:
                     synth_error = f"Error during local synthesis prep: {str(e)}"
+                    print(f"CRITICAL: [XTTS] {synth_error}", flush=True)
 
             # Try ElevenLabs first if previously successful and not in local mode
             if not audio_content and ai_manager.ai_mode != 'local' and profile.elevenlabs_voice_id:
