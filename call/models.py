@@ -127,3 +127,15 @@ class VoiceResponseCache(models.Model):
 
     def __str__(self):
         return f"Cache for {self.user.username} - {self.text_hash[:8]}"
+
+class CallRecording(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='call_recordings')
+    room_id = models.CharField(max_length=255)
+    file = CloudinaryField('video', resource_type='video')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Recording by {self.user.username} in {self.room_id} at {self.created_at}"
+
+    class Meta:
+        ordering = ['-created_at']

@@ -9,7 +9,7 @@ from django.urls import re_path
 from django.views.static import serve
 
 
-from call.views import chat_history, get_or_create_private_room, send_invite, accept_invite, decline_invite, pending_invites
+from call.views import chat_history, get_or_create_private_room, send_invite, accept_invite, decline_invite, pending_invites, upload_recording
 from call.video_views import list_videos, get_video_detail, stream_video, upload_video, delete_video, video_comments, toggle_reaction
 from call.voice_views import upload_voice_samples, chat_with_self, get_voice_status, delete_voice_profile
 
@@ -25,6 +25,7 @@ urlpatterns = [
     path('api/accept-invite/', accept_invite),
     path('api/decline-invite/', decline_invite),
     path('api/pending-invites/', pending_invites),
+    path('api/call/upload/', upload_recording, name='recording-upload'),
     
     # Video API endpoints
     path('api/videos/', list_videos, name='list_videos'),

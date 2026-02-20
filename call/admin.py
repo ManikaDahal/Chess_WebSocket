@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ChatRoom, Message, Notification, GameInvite, GameMove, GameVideo, VideoComment, VideoReaction
+from .models import ChatRoom, Message, Notification, GameInvite, GameMove, GameVideo, VideoComment, VideoReaction, CallRecording
 
 @admin.register(ChatRoom)
 class ChatRoomAdmin(admin.ModelAdmin):
@@ -66,3 +66,10 @@ admin.site.register(GameInvite)
 admin.site.register(GameMove)
 admin.site.register(VideoComment)
 admin.site.register(VideoReaction)
+
+@admin.register(CallRecording)
+class CallRecordingAdmin(admin.ModelAdmin):
+    list_display = ('user', 'room_id', 'created_at')
+    list_filter = ('created_at',)
+    search_fields = ('user__username', 'room_id')
+    readonly_fields = ('created_at',)

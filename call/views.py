@@ -209,3 +209,27 @@ def pending_invites(request):
         for invite in invites
     ]
     return Response(data)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_recording(request):
+    """Upload a call recording to Cloudinary."""
+    room_id = request.data.get('room_id')
+    recording_file = request.FILES.get('file')
+
+    if not room_id or not recording_file:
+        return Response(
+            {"error": "room_id and file are required."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    from .models import CallRecording
+    recording = CallRecording.objects.create(
+        user=request.user,
+        room_id=room_id,
+        file=recording_file
+    )
+
+    return Response(
+        {"message": "Recording uploaded successfully.", "id": recording.id, "url": recording.file.url},
+        status=status.HTTP_201_CREATED
+    )
