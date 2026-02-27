@@ -2,6 +2,7 @@ from django.db.models import Count
 from django.apps import apps
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from rest_framework import status
 from .models import ChatRoom, Message, Notification, GameInvite, GameMove
 from asgiref.sync import sync_to_async
 from django.db import transaction
@@ -222,14 +223,23 @@ def upload_recording(request):
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    from .models import CallRecording
-    recording = CallRecording.objects.create(
-        user=request.user,
-        room_id=room_id,
-        file=recording_file
-    )
+    try:
+        from .models import CallRecording
+        recording = CallRecording.objects.create(
+            user=request.user,
+            room_id=room_id,
+            file=recording_file
+        )
+        return Response(
+            {"message": "Recording uploaded successfully.", "id": recording.id, "url": recording.file.url},
+            status=status.HTTP_201_CREATED
+        )
+    except Exception as e:
+        import traceback
+        print(f"[upload_recording] ERROR: {e}")
+        print(traceback.format_exc())
+        return Response(
+            {"error": f"Upload failed: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
-    return Response(
-        {"message": "Recording uploaded successfully.", "id": recording.id, "url": recording.file.url},
-        status=status.HTTP_201_CREATED
-    )
