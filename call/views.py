@@ -243,3 +243,39 @@ def upload_recording(request):
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def update_notification_status(request):
+    """Updates the status of a push notification log."""
+    message_id = request.data.get('message_id')
+    status_val = request.data.get('status') # 'delivered' or 'opened'
+
+    if not message_id or not status_val:
+        return Response(
+            {"error": "message_id and status are required."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if status_val not in ['delivered', 'opened']:
+        return Response(
+            {"error": "Invalid status. Must be 'delivered' or 'opened'."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        from .models import NotificationLog
+        log_entry = NotificationLog.objects.get(message_id=message_id)
+        
+        # Don't downgrade status (e.g., if already opened, don't change to delivered)
+        if log_entry.status == 'opened' and status_val == 'delivered':
+            pass
+        else:
+            log_entry.status = status_val
+            log_entry.save()
+            
+        return Response({"message": f"Status updated to {status_val}"})
+    except NotificationLog.DoesNotExist:
+        return Response({"error": "Notification log not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+

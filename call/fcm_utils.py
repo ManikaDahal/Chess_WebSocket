@@ -3,6 +3,7 @@ import json
 import firebase_admin
 from firebase_admin import credentials, messaging
 import logging
+from .models import NotificationLog
 
 logger = logging.getLogger(__name__)
 
@@ -85,10 +86,37 @@ def notify_user_via_fcm(user, title, body, data=None):
     """Retrieves all tokens for a user and sends a notification."""
     from chess_python.models import FCMToken
     tokens = list(FCMToken.objects.filter(user=user).values_list('token', flat=True))
+    
+    # Create a log entry
+    log_entry = NotificationLog.objects.create(
+        user=user,
+        title=title,
+        body=body,
+        data=data or {},
+        status='sent'
+    )
+    
     if tokens:
         print(f"FCM [TOKEN_CHECK]: Found {len(tokens)} tokens for user {user.username} (ID: {user.id})")
-        return send_fcm_notification(tokens, title, body, data)
+        response = send_fcm_notification(tokens, title, body, data)
+        
+        if response and response.success_count > 0:
+            # Get the first successful message ID for tracking
+            for res in response.responses:
+                if res.success:
+                    log_entry.message_id = res.message_id
+                    log_entry.status = 'sent'
+                    break
+        elif response and response.failure_count == len(tokens):
+            log_entry.status = 'failed'
+            log_entry.error_message = "All tokens failed"
+        
+        log_entry.save()
+        return response
     else:
         logger.info(f"FCM [TOKEN_CHECK]: No tokens found for user {user.username} (ID: {user.id})")
         print(f"FCM [TOKEN_CHECK]: WARNING - No tokens found for user {user.username} (ID: {user.id})")
+        log_entry.status = 'failed'
+        log_entry.error_message = "No FCM tokens found for user"
+        log_entry.save()
         return None

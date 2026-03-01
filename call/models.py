@@ -139,3 +139,26 @@ class CallRecording(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+class NotificationLog(models.Model):
+    STATUS_CHOICES = [
+        ('sent', 'Sent'),
+        ('delivered', 'Delivered'),
+        ('opened', 'Opened'),
+        ('failed', 'Failed'),
+    ]
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notification_logs')
+    message_id = models.CharField(max_length=255, unique=True, null=True, blank=True)
+    title = models.CharField(max_length=255)
+    body = models.TextField()
+    data = models.JSONField(default=dict, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='sent')
+    error_message = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.title} ({self.status})"
+
+    class Meta:
+        ordering = ['-created_at']

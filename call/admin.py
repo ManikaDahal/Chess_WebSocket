@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ChatRoom, Message, Notification, GameInvite, GameMove, GameVideo, VideoComment, VideoReaction, CallRecording
+from .models import ChatRoom, Message, Notification, GameInvite, GameMove, GameVideo, VideoComment, VideoReaction, CallRecording, NotificationLog
 
 @admin.register(ChatRoom)
 class ChatRoomAdmin(admin.ModelAdmin):
@@ -73,3 +73,42 @@ class CallRecordingAdmin(admin.ModelAdmin):
     list_filter = ('created_at',)
     search_fields = ('user__username', 'room_id')
     readonly_fields = ('created_at',)
+
+@admin.register(NotificationLog)
+class NotificationLogAdmin(admin.ModelAdmin):
+    list_display = ('user', 'message_id', 'title', 'status', 'created_at')
+    list_filter = ('status', 'created_at')
+    search_fields = ('user__username', 'title', 'message_id', 'body')
+    readonly_fields = ('created_at', 'updated_at')
+
+    def changelist_view(self, request, extra_context=None):
+        # Aggregate statistics
+        from django.db.models import Count
+        from .models import NotificationLog
+        
+        stats = NotificationLog.objects.values('status').annotate(total=Count('status'))
+        total_count = NotificationLog.objects.count()
+        
+        summary = {
+            'total': total_count,
+            'sent': 0,
+            'delivered': 0,
+            'opened': 0,
+            'failed': 0,
+        }
+        
+        for s in stats:
+            summary[s['status']] = s['total']
+            
+        # Calculate rates
+        if total_count > 0:
+            summary['delivery_rate'] = round((summary['delivered'] + summary['opened']) / total_count * 100, 2)
+            summary['open_rate'] = round(summary['opened'] / total_count * 100, 2)
+        else:
+            summary['delivery_rate'] = 0
+            summary['open_rate'] = 0
+
+        extra_context = extra_context or {}
+        extra_context['notification_summary'] = summary
+        
+        return super().changelist_view(request, extra_context=extra_context)
