@@ -88,6 +88,7 @@ def notify_user_via_fcm(user, title, body, data=None):
     tokens = list(FCMToken.objects.filter(user=user).values_list('token', flat=True))
     
     # Create a log entry
+    print(f"FCM [LOG_TRACE]: Creating log entry for user {user.username} (Title: {title}, Type: {data.get('type')})")
     log_entry = NotificationLog.objects.create(
         user=user,
         title=title,
@@ -95,6 +96,7 @@ def notify_user_via_fcm(user, title, body, data=None):
         data=data or {},
         status='sent'
     )
+    print(f"FCM [LOG_TRACE]: Created log ID: {log_entry.id}")
     
     if tokens:
         print(f"FCM [TOKEN_CHECK]: Found {len(tokens)} tokens for user {user.username} (ID: {user.id})")
@@ -105,11 +107,12 @@ def notify_user_via_fcm(user, title, body, data=None):
             for res in response.responses:
                 if res.success:
                     log_entry.message_id = res.message_id
-                    log_entry.status = 'sent'
+                    print(f"FCM [LOG_TRACE]: Updated log {log_entry.id} with FCM message_id: {res.message_id}")
                     break
         elif response and response.failure_count == len(tokens):
             log_entry.status = 'failed'
             log_entry.error_message = "All tokens failed"
+            print(f"FCM [LOG_TRACE]: Log {log_entry.id} failed - All tokens failed")
         
         log_entry.save()
         return response

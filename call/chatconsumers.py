@@ -217,6 +217,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     # Only create DB notifications for users actually in the room (to avoid cluttering for users who haven't joined)
                     # But send the FCM background alert anyway
                     Notification.objects.create(user=user, sender=sender, message=message, room=room)
+                    print(f"FCM [LOG_TRACE]: Calling notify_user_background for user {user.id} ({user.username})")
                     notify_user_background(user.id, self.room_id, message, sender.id, sender_name, msg_id=msg_id)
                 except Exception as loop_e:
                     print(f"[ERROR] Failed to notify user {user.id}: {loop_e}")

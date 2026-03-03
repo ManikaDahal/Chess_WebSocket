@@ -264,16 +264,23 @@ def update_notification_status(request):
 
     try:
         from .models import NotificationLog
-        # 1. Try to find by FCM message_id (unique)
-        log_entry = NotificationLog.objects.filter(message_id=message_id).first()
-        
-        # 2. Fallback: Try to find by internal ID in 'data' field for this specific user
-        if not log_entry:
-            log_entry = NotificationLog.objects.filter(user=request.user, data__id=message_id).first()
+        from django.db.models import Q
+
+        # Robust lookup:
+        # 1. Exact match on message_id (FCM ID)
+        # 2. Suffix match on message_id (to handle 'projects/.../messages/' prefix)
+        # 3. Match on internal ID in 'data' field for this user
+        log_entry = NotificationLog.objects.filter(
+            Q(message_id=message_id) | 
+            Q(message_id__endswith=message_id) |
+            Q(user=request.user, data__id=message_id)
+        ).first()
             
         if not log_entry:
-            print(f"FCM [DEBUG]: Notification log not found for ID: {message_id} (User: {request.user.id})")
+            print(f"FCM [DEBUG]: Notification log not found. ID sent: '{message_id}' (User: {request.user.id})")
             return Response({"error": "Notification log not found"}, status=status.HTTP_404_NOT_FOUND)
+            
+        print(f"FCM [DEBUG]: Found log {log_entry.id}. Updating status to {status_val}")
             
         # Don't downgrade status (e.g., if already opened, don't change to delivered)
         if log_entry.status == 'opened' and status_val == 'delivered':
