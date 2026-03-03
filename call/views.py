@@ -264,8 +264,17 @@ def update_notification_status(request):
 
     try:
         from .models import NotificationLog
-        log_entry = NotificationLog.objects.get(message_id=message_id)
+        # 1. Try to find by FCM message_id (unique)
+        log_entry = NotificationLog.objects.filter(message_id=message_id).first()
         
+        # 2. Fallback: Try to find by internal ID in 'data' field for this specific user
+        if not log_entry:
+            log_entry = NotificationLog.objects.filter(user=request.user, data__id=message_id).first()
+            
+        if not log_entry:
+            print(f"FCM [DEBUG]: Notification log not found for ID: {message_id} (User: {request.user.id})")
+            return Response({"error": "Notification log not found"}, status=status.HTTP_404_NOT_FOUND)
+            
         # Don't downgrade status (e.g., if already opened, don't change to delivered)
         if log_entry.status == 'opened' and status_val == 'delivered':
             pass
@@ -274,8 +283,9 @@ def update_notification_status(request):
             log_entry.save()
             
         return Response({"message": f"Status updated to {status_val}"})
-    except NotificationLog.DoesNotExist:
-        return Response({"error": "Notification log not found"}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
+        import traceback
+        print(f"FCM [ERROR]: Update status failed: {e}")
+        print(traceback.format_exc())
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
