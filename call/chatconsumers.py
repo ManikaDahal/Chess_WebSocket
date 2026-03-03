@@ -212,15 +212,21 @@ class ChatConsumer(AsyncWebsocketConsumer):
             if not participant_list:
                 print(f"[WARNING] FCM_TRIGGER: No matching users/tokens found for Room {self.room_id}")
 
-            for user in participants:
-                try:
-                    # Only create DB notifications for users actually in the room (to avoid cluttering for users who haven't joined)
-                    # But send the FCM background alert anyway
-                    Notification.objects.create(user=user, sender=sender, message=message, room=room)
-                    print(f"FCM [LOG_TRACE]: Calling notify_user_background for user {user.id} ({user.username})")
-                    notify_user_background(user.id, self.room_id, message, sender.id, sender_name, msg_id=msg_id)
-                except Exception as loop_e:
-                    print(f"[ERROR] Failed to notify user {user.id}: {loop_e}")
+            # Create DB notifications in bulk to avoid multiple queries
+            notifs_to_create = [
+                Notification(user=user, sender=sender, message=message, room=room)
+                for user in participants
+            ]
+            if notifs_to_create:
+                Notification.objects.bulk_create(notifs_to_create)
+                print(f"FCM [LOG_TRACE]: Created {len(notifs_to_create)} Notification objects in DB.")
+
+            # Trigger batch background FCM notification
+            user_ids = list(participants.values_list('id', flat=True))
+            if user_ids:
+                from .notification_utils import notify_multiple_users_background
+                print(f"FCM [LOG_TRACE]: Triggering batch notification for {len(user_ids)} users.")
+                notify_multiple_users_background(user_ids, self.room_id, message, sender.id, sender_name, msg_id=msg_id)
         except Exception as e:
             print(f"[ERROR] create_notification main: {e}")
 

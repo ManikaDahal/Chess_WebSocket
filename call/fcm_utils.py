@@ -84,42 +84,92 @@ def send_fcm_notification(tokens, title, body, data=None):
 
 def notify_user_via_fcm(user, title, body, data=None):
     """Retrieves all tokens for a user and sends a notification."""
+    return notify_multiple_users_via_fcm([user], title, body, data)
+
+def notify_multiple_users_via_fcm(users, title, body, data=None):
+    """
+    Sends a notification to multiple users and logs each attempt.
+    Optimized for bulk delivery.
+    """
     from chess_python.models import FCMToken
-    tokens = list(FCMToken.objects.filter(user=user).values_list('token', flat=True))
     
-    # Create a log entry
-    print(f"FCM [LOG_TRACE]: Creating log entry for user {user.username} (Title: {title}, Type: {data.get('type')})")
-    log_entry = NotificationLog.objects.create(
-        user=user,
-        title=title,
-        body=body,
-        data=data or {},
-        status='sent'
-    )
-    print(f"FCM [LOG_TRACE]: Created log ID: {log_entry.id}")
+    # 1. Fetch all tokens for all selected users in one query
+    token_objs = FCMToken.objects.filter(user__in=users).select_related('user')
+    user_tokens = {}
+    for t in token_objs:
+        if t.user.id not in user_tokens:
+            user_tokens[t.user.id] = []
+        user_tokens[t.user.id].append(t.token)
     
-    if tokens:
-        print(f"FCM [TOKEN_CHECK]: Found {len(tokens)} tokens for user {user.username} (ID: {user.id})")
-        response = send_fcm_notification(tokens, title, body, data)
-        
-        if response and response.success_count > 0:
-            # Get the first successful message ID for tracking
-            for res in response.responses:
-                if res.success:
-                    log_entry.message_id = res.message_id
-                    print(f"FCM [LOG_TRACE]: Updated log {log_entry.id} with FCM message_id: {res.message_id}")
-                    break
-        elif response and response.failure_count == len(tokens):
-            log_entry.status = 'failed'
-            log_entry.error_message = "All tokens failed"
-            print(f"FCM [LOG_TRACE]: Log {log_entry.id} failed - All tokens failed")
-        
-        log_entry.save()
-        return response
-    else:
-        logger.info(f"FCM [TOKEN_CHECK]: No tokens found for user {user.username} (ID: {user.id})")
-        print(f"FCM [TOKEN_CHECK]: WARNING - No tokens found for user {user.username} (ID: {user.id})")
-        log_entry.status = 'failed'
-        log_entry.error_message = "No FCM tokens found for user"
-        log_entry.save()
+    # 2. Bulk create NotificationLog entries
+    logs_to_create = [
+        NotificationLog(
+            user=user,
+            title=title,
+            body=body,
+            data=data or {},
+            status='sent'
+        )
+        for user in users
+    ]
+    created_logs = NotificationLog.objects.bulk_create(logs_to_create)
+    log_map = {log.user.id: log for log in created_logs}
+    
+    print(f"FCM [BATCH]: Prepared {len(created_logs)} logs for {len(users)} users.")
+
+    # 3. Prepare FCM messages for all tokens
+    all_tokens = []
+    token_to_user_id = {}
+    for user_id, tokens in user_tokens.items():
+        for t in tokens:
+            all_tokens.append(t)
+            token_to_user_id[t] = user_id
+            
+    if not all_tokens:
+        print("FCM [BATCH]: No tokens found for any recipient.")
+        # Mark all logs as failed
+        NotificationLog.objects.filter(id__in=[l.id for l in created_logs]).update(
+            status='failed', 
+            error_message="No FCM tokens found"
+        )
         return None
+
+    # 4. Send using batch messaging
+    response = send_fcm_notification(all_tokens, title, body, data)
+    
+    if response:
+        # 5. Update logs with FCM message IDs where possible
+        # Note: messaging.send_each returns responses in the same order as tokens
+        # We can't easily map back if we have multiple tokens per user and some fail,
+        # but we'll try to update the log status at least.
+        success_user_ids = set()
+        for idx, res in enumerate(response.responses):
+            if res.success:
+                u_id = token_to_user_id[all_tokens[idx]]
+                success_user_ids.add(u_id)
+                # Assign the first success message ID to the log
+                log = log_map.get(u_id)
+                if log and not log.message_id:
+                    log.message_id = res.message_id
+        
+        # Save updated message_ids 
+        NotificationLog.objects.bulk_update(
+            [log for log in created_logs if log.message_id], 
+            ['message_id']
+        )
+        
+        # Batch update status for those that had NO success
+        failed_count = 0
+        for log in created_logs:
+            if log.user.id not in success_user_ids:
+                log.status = 'failed'
+                log.error_message = "All tokens failed or no tokens found"
+                failed_count += 1
+        
+        if failed_count > 0:
+            NotificationLog.objects.bulk_update(
+                [log for log in created_logs if log.status == 'failed'], 
+                ['status', 'error_message']
+            )
+            
+    return response
