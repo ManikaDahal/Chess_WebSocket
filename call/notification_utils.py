@@ -4,26 +4,26 @@ from .fcm_utils import notify_user_via_fcm
 
 logger = logging.getLogger(__name__)
 
-def notify_user_background(user_id, room_id, message, sender_id, sender_name, msg_id=None, notification_type="chat_message"):
+def notify_user_background(user_id, room_id, message, sender_id, sender_name, msg_id=None, notification_type="chat_message", category=None):
     """
     Entry point to trigger an FCM notification in a background thread.
     This prevents the WebSocket consumer from hanging.
     """
     thread = threading.Thread(
         target=_process_notification,
-        args=(user_id, room_id, message, sender_id, sender_name, msg_id, notification_type),
+        args=(user_id, room_id, message, sender_id, sender_name, msg_id, notification_type, category),
         daemon=True
     )
     thread.start()
 
 
-def notify_multiple_users_background(user_ids, room_id, message, sender_id, sender_name, msg_id=None, notification_type="chat_message"):
+def notify_multiple_users_background(user_ids, room_id, message, sender_id, sender_name, msg_id=None, notification_type="chat_message", category=None):
     """
     Triggers batch FCM notifications for multiple users in a single background thread.
     """
     thread = threading.Thread(
         target=_process_multi_notification,
-        args=(user_ids, room_id, message, sender_id, sender_name, msg_id, notification_type),
+        args=(user_ids, room_id, message, sender_id, sender_name, msg_id, notification_type, category),
         daemon=True
     )
     thread.start()
@@ -55,12 +55,12 @@ def notify_room_members_background(room_id, message, sender_id, sender_name, msg
         print(f"FCM Room Notify Error: {e}")
 
 
-def _process_notification(user_id, room_id, message, sender_id, sender_name, msg_id=None, notification_type="chat_message"):
+def _process_notification(user_id, room_id, message, sender_id, sender_name, msg_id=None, notification_type="chat_message", category=None):
     """Wrapper for single user notification in background."""
-    _process_multi_notification([user_id], room_id, message, sender_id, sender_name, msg_id, notification_type)
+    _process_multi_notification([user_id], room_id, message, sender_id, sender_name, msg_id, notification_type, category)
 
 
-def _process_multi_notification(user_ids, room_id, message, sender_id, sender_name, msg_id=None, notification_type="chat_message"):
+def _process_multi_notification(user_ids, room_id, message, sender_id, sender_name, msg_id=None, notification_type="chat_message", category=None):
     """
     The actual work function running in the background thread for one or more users.
     """
@@ -84,13 +84,23 @@ def _process_multi_notification(user_ids, room_id, message, sender_id, sender_na
         
         print(f"FCM [BATCH_TRACE]: Starting background thread for {len(users)} users. Type: {notification_type}")
         
+        # Map notification_type to category if not explicitly provided
+        if not category:
+            if notification_type == "chat_message":
+                category = "message"
+            elif notification_type in ["chess_invite", "invite_accepted", "invite_declined"]:
+                category = "invitation"
+            else:
+                category = "system"
+
         title = f"New message from {sender_name}" if notification_type == "chat_message" else f"Chess Invite from {sender_name}"
         
         notify_multiple_users_via_fcm(
             users=users,
             title=title,
             body=message,
-            data=fcm_data
+            data=fcm_data,
+            category=category
         )
     except Exception as e:
         logger.error(f"FCM: Background batch notification failed: {e}")

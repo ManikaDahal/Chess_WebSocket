@@ -145,13 +145,21 @@ class NotificationLog(models.Model):
         ('sent', 'Sent'),
         ('delivered', 'Delivered'),
         ('opened', 'Opened'),
+        ('closed', 'Closed'),
+        ('blocked', 'Blocked'),
         ('failed', 'Failed'),
+    ]
+    CATEGORY_CHOICES = [
+        ('message', 'Message'),
+        ('invitation', 'Invitation'),
+        ('system', 'System'),
     ]
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notification_logs')
     message_id = models.CharField(max_length=255, unique=True, null=True, blank=True)
     title = models.CharField(max_length=255)
     body = models.TextField()
     data = models.JSONField(default=dict, blank=True)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='system')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='sent')
     error_message = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

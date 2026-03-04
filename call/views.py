@@ -123,7 +123,8 @@ def send_invite(request):
             sender_id=sender.id,
             sender_name=sender.username,
             msg_id=f"invite_{invite.id}",
-            notification_type="chess_invite"
+            notification_type="chess_invite",
+            category="invitation"
         )
         
         return Response({
@@ -159,7 +160,8 @@ def accept_invite(request):
             sender_id=request.user.id,
             sender_name=request.user.username,
             msg_id=f"accept_{invite.id}",
-            notification_type="invite_accepted"
+            notification_type="invite_accepted",
+            category="invitation"
         )
         
         return Response({
@@ -187,7 +189,8 @@ def decline_invite(request):
             sender_id=request.user.id,
             sender_name=request.user.username,
             msg_id=f"decline_{invite.id}",
-            notification_type="invite_declined"
+            notification_type="invite_declined",
+            category="invitation"
         )
         
         return Response({"message": "Invitation declined"})
@@ -248,7 +251,7 @@ def upload_recording(request):
 def update_notification_status(request):
     """Updates the status of a push notification log."""
     message_id = request.data.get('message_id')
-    status_val = request.data.get('status') # 'delivered' or 'opened'
+    status_val = request.data.get('status') # 'delivered', 'opened', 'closed', 'blocked'
 
     if not message_id or not status_val:
         return Response(
@@ -256,9 +259,9 @@ def update_notification_status(request):
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    if status_val not in ['delivered', 'opened']:
+    if status_val not in ['delivered', 'opened', 'closed', 'blocked']:
         return Response(
-            {"error": "Invalid status. Must be 'delivered' or 'opened'."},
+            {"error": "Invalid status. Must be 'delivered', 'opened', 'closed', or 'blocked'."},
             status=status.HTTP_400_BAD_REQUEST
         )
 

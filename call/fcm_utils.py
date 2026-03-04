@@ -82,11 +82,11 @@ def send_fcm_notification(tokens, title, body, data=None):
         print(f"FCM: Error sending messages: {e}")
         return None
 
-def notify_user_via_fcm(user, title, body, data=None):
+def notify_user_via_fcm(user, title, body, data=None, category='system'):
     """Retrieves all tokens for a user and sends a notification."""
-    return notify_multiple_users_via_fcm([user], title, body, data)
+    return notify_multiple_users_via_fcm([user], title, body, data, category)
 
-def notify_multiple_users_via_fcm(users, title, body, data=None):
+def notify_multiple_users_via_fcm(users, title, body, data=None, category='system'):
     """
     Sends a notification to multiple users and logs each attempt.
     Optimized for bulk delivery.
@@ -108,6 +108,7 @@ def notify_multiple_users_via_fcm(users, title, body, data=None):
             title=title,
             body=body,
             data=data or {},
+            category=category,
             status='sent'
         )
         for user in users
