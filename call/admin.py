@@ -76,8 +76,8 @@ class CallRecordingAdmin(admin.ModelAdmin):
 
 @admin.register(NotificationLog)
 class NotificationLogAdmin(admin.ModelAdmin):
-    list_display = ('user', 'message_id', 'title', 'status', 'created_at')
-    list_filter = ('status', 'created_at')
+    list_display = ('user', 'message_id', 'title', 'category', 'status', 'created_at')
+    list_filter = ('category', 'status', 'created_at')
     search_fields = ('user__username', 'title', 'message_id', 'body')
     readonly_fields = ('created_at', 'updated_at')
 
@@ -94,6 +94,8 @@ class NotificationLogAdmin(admin.ModelAdmin):
             'sent': 0,
             'delivered': 0,
             'opened': 0,
+            'closed': 0,
+            'blocked': 0,
             'failed': 0,
         }
         
