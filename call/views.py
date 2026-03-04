@@ -269,6 +269,19 @@ def update_notification_status(request):
         from .models import NotificationLog
         from django.db.models import Q
 
+        # Special Case: Notification Permission Blocked by User
+        if message_id == "permission_blocked":
+            print(f"FCM [DEBUG]: Handling 'permission_blocked' for User: {request.user.id}. Updating all recent logs.")
+            # Update all recent notifications for this user (sent/delivered) to 'blocked'
+            updated_count = NotificationLog.objects.filter(
+                user=request.user,
+                status__in=['sent', 'delivered']
+            ).update(status='blocked')
+            
+            return Response({
+                "message": f"Global status updated to blocked for {updated_count} notifications."
+            })
+
         # Robust lookup:
         # 1. Exact match on message_id (FCM ID)
         # 2. Suffix match on message_id (to handle 'projects/.../messages/' prefix)
@@ -283,11 +296,12 @@ def update_notification_status(request):
             print(f"FCM [DEBUG]: Notification log not found. ID sent: '{message_id}' (User: {request.user.id})")
             return Response({"error": "Notification log not found"}, status=status.HTTP_404_NOT_FOUND)
             
-        print(f"FCM [DEBUG]: Found log {log_entry.id}. Updating status to {status_val}")
+        print(f"FCM [DEBUG]: Found log {log_entry.id} (Current status: {log_entry.status}). Attempting update to {status_val}")
             
-        # Don't downgrade status (e.g., if already opened, don't change to delivered)
-        if log_entry.status == 'opened' and status_val == 'delivered':
-            pass
+        # Terminal states: Don't downgrade if already in a "finished" state
+        terminal_states = ['opened', 'closed', 'blocked']
+        if log_entry.status in terminal_states and status_val not in terminal_states:
+            print(f"FCM [DEBUG]: Skipping downgrade from {log_entry.status} to {status_val}")
         else:
             log_entry.status = status_val
             log_entry.save()
