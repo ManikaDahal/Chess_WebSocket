@@ -16,6 +16,11 @@ class CallConsumer(AsyncWebsocketConsumer):
 
         await self.accept()
 
+        await self.send(text_data=json.dumps({
+            'type': 'connection_established',
+            'room_name': self.room_name
+        }))
+
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(
             self.room_group_name,
@@ -24,6 +29,11 @@ class CallConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data):
         data = json.loads(text_data)
+
+        # Handle ping/pong for keepalive
+        if data.get("type") == "ping":
+            await self.send(text_data=json.dumps({"type": "pong"}))
+            return
 
         await self.channel_layer.group_send(
             self.room_group_name,
