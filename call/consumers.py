@@ -16,10 +16,26 @@ class CallConsumer(AsyncWebsocketConsumer):
 
         await self.accept()
 
+        # Send a connection confirmation to the client
         await self.send(text_data=json.dumps({
             'type': 'connection_established',
-            'room_name': self.room_name
+            'message': f'Connected to room: {self.room_name}'
         }))
+
+        # Notify others in the room that a new peer has joined
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'signal_message',
+                'message': {
+                    'type': 'peer_joined',
+                    'sender': 'system', # Identified as system to avoid client-side self-filtering
+                    'sender_channel': self.channel_name,
+                    'message': f'Peer joined room: {self.room_name}'
+                },
+                'sender': self.channel_name
+            }
+        )
 
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(
@@ -45,8 +61,12 @@ class CallConsumer(AsyncWebsocketConsumer):
         )
 
     async def signal_message(self, event):
-        # Don't send back to sender
+        message = event['message']
+        
+        # Don't send peer_joined notification to the person who just joined
+        if message.get('type') == 'peer_joined' and message.get('sender_channel') == self.channel_name:
+            return
+
+        # Don't send back to sender for other messages
         if self.channel_name != event['sender']:
-            await self.send(text_data=json.dumps(event['message']))
-
-
+            await self.send(text_data=json.dumps(message))
