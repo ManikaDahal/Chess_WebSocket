@@ -313,3 +313,65 @@ def update_notification_status(request):
         print(traceback.format_exc())
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_notification_preferences(request):
+    """
+    Returns all notification categories with the user's current blocked status.
+    Frontend uses this to render the notification preference settings screen.
+    """
+    from .models import NotificationPreference, NOTIFICATION_CATEGORIES
+
+    # Fetch existing preferences for this user
+    existing = {
+        p.category: p.is_blocked
+        for p in NotificationPreference.objects.filter(user=request.user)
+    }
+
+    data = [
+        {
+            "category": key,
+            "label": label,
+            "is_blocked": existing.get(key, False),  # default: NOT blocked
+        }
+        for key, label in NOTIFICATION_CATEGORIES
+    ]
+    return Response(data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def update_notification_preference(request):
+    """
+    Blocks or unblocks a notification category for the authenticated user.
+    Body: { "category": "message", "is_blocked": true }
+    """
+    from .models import NotificationPreference, NOTIFICATION_CATEGORIES
+
+    category = request.data.get('category')
+    is_blocked = request.data.get('is_blocked')
+
+    valid_categories = [key for key, _ in NOTIFICATION_CATEGORIES]
+    if category not in valid_categories:
+        return Response(
+            {"error": f"Invalid category. Must be one of: {valid_categories}"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    if is_blocked is None:
+        return Response(
+            {"error": "is_blocked (bool) is required."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    pref, created = NotificationPreference.objects.get_or_create(
+        user=request.user,
+        category=category,
+        defaults={"is_blocked": bool(is_blocked)},
+    )
+    if not created:
+        pref.is_blocked = bool(is_blocked)
+        pref.save()
+
+    action = "blocked" if pref.is_blocked else "unblocked"
+    print(f"[NotifPref] User {request.user.username} {action} category '{category}'")
+    return Response({"message": f"Category '{category}' is now {action}.", "is_blocked": pref.is_blocked})

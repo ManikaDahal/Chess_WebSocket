@@ -2,6 +2,19 @@ from django.db import models
 from django.conf import settings
 from cloudinary.models import CloudinaryField
 
+# ---------------------------------------------------------------------------
+# Notification categories — add a new tuple here to create a new category.
+# Format: ('db_value', 'Human-Readable Label')
+# This list is the single source of truth for both NotificationLog and
+# NotificationPreference models.
+# ---------------------------------------------------------------------------
+NOTIFICATION_CATEGORIES = [
+    ('message',    'Chat Message'),
+    ('invitation', 'Game Invitation'),
+    ('system',     'System'),
+    # ('game_result', 'Game Result'),  # <-- example: uncomment to add a category
+]
+
 class ChatRoom(models.Model):
     """Chat room for two or more users"""
     users=models.ManyToManyField(settings.AUTH_USER_MODEL)
@@ -149,17 +162,12 @@ class NotificationLog(models.Model):
         ('blocked', 'Blocked'),
         ('failed', 'Failed'),
     ]
-    CATEGORY_CHOICES = [
-        ('message', 'Message'),
-        ('invitation', 'Invitation'),
-        ('system', 'System'),
-    ]
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notification_logs')
     message_id = models.CharField(max_length=255, unique=True, null=True, blank=True)
     title = models.CharField(max_length=255)
     body = models.TextField()
     data = models.JSONField(default=dict, blank=True)
-    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='system')
+    category = models.CharField(max_length=30, choices=NOTIFICATION_CATEGORIES, default='system')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='sent')
     error_message = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -170,3 +178,27 @@ class NotificationLog(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+
+class NotificationPreference(models.Model):
+    """
+    Stores per-user notification blocking preferences per category.
+    If is_blocked=True, the backend will NOT send that category to the user.
+    Frontend also respects this to suppress local display.
+    """
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='notification_preferences'
+    )
+    category = models.CharField(max_length=30, choices=NOTIFICATION_CATEGORIES)
+    is_blocked = models.BooleanField(default=False)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('user', 'category')
+        ordering = ['category']
+
+    def __str__(self):
+        state = 'BLOCKED' if self.is_blocked else 'allowed'
+        return f"{self.user.username} - {self.category} ({state})"

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import ChatRoom, Message, Notification, GameInvite, GameMove, GameVideo, VideoComment, VideoReaction, CallRecording, NotificationLog
+from .models import ChatRoom, Message, Notification, GameInvite, GameMove, GameVideo, VideoComment, VideoReaction, CallRecording, NotificationLog, NotificationPreference
 
 @admin.register(ChatRoom)
 class ChatRoomAdmin(admin.ModelAdmin):
@@ -76,10 +76,14 @@ class CallRecordingAdmin(admin.ModelAdmin):
 
 @admin.register(NotificationLog)
 class NotificationLogAdmin(admin.ModelAdmin):
-    list_display = ('user', 'message_id', 'title', 'category', 'status', 'created_at')
+    list_display = ('user', 'title', 'short_body', 'category', 'status', 'created_at')
     list_filter = ('category', 'status', 'created_at')
     search_fields = ('user__username', 'title', 'message_id', 'body')
     readonly_fields = ('created_at', 'updated_at')
+
+    @admin.display(description='Body')
+    def short_body(self, obj):
+        return (obj.body[:80] + '…') if len(obj.body) > 80 else obj.body
 
     def changelist_view(self, request, extra_context=None):
         # Aggregate statistics
@@ -114,3 +118,11 @@ class NotificationLogAdmin(admin.ModelAdmin):
         extra_context['notification_summary'] = summary
         
         return super().changelist_view(request, extra_context=extra_context)
+
+
+@admin.register(NotificationPreference)
+class NotificationPreferenceAdmin(admin.ModelAdmin):
+    list_display = ('user', 'category', 'is_blocked', 'updated_at')
+    list_filter = ('category', 'is_blocked')
+    search_fields = ('user__username',)
+    readonly_fields = ('updated_at',)

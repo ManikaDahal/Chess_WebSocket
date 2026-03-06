@@ -4,6 +4,28 @@ from .fcm_utils import notify_user_via_fcm
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Add new notification_type → category mappings here when you create a new
+# notification type. This is the single source of truth.
+# ---------------------------------------------------------------------------
+NOTIFICATION_TYPE_TO_CATEGORY = {
+    "chat_message":    "message",
+    "chess_invite":    "invitation",
+    "invite_accepted": "invitation",
+    "invite_declined": "invitation",
+    # "game_result":   "game_result",  # <-- example: uncomment to add a type
+}
+
+# Title template per notification_type. Use {sender_name} as placeholder.
+NOTIFICATION_TITLE_TEMPLATES = {
+    "chat_message":    "New message from {sender_name}",
+    "chess_invite":    "Chess Invite from {sender_name}",
+    "invite_accepted": "{sender_name} accepted your invite!",
+    "invite_declined": "{sender_name} declined your invite.",
+    # "game_result":   "Game result — {sender_name}",
+}
+
+
 def notify_user_background(user_id, room_id, message, sender_id, sender_name, msg_id=None, notification_type="chat_message", category=None):
     """
     Entry point to trigger an FCM notification in a background thread.
@@ -35,12 +57,12 @@ def notify_room_members_background(room_id, message, sender_id, sender_name, msg
     Optimized to use batch processing.
     """
     try:
-        from call.models import ChatRoom  
+        from call.models import ChatRoom
 
         room = ChatRoom.objects.get(id=room_id)
         participants = room.users.exclude(id=sender_id)
         user_ids = list(participants.values_list('id', flat=True))
-        
+
         if user_ids:
             print(f"FCM: Room {room_id} triggering batch notification for {len(user_ids)} users.")
             notify_multiple_users_background(
@@ -63,14 +85,65 @@ def _process_notification(user_id, room_id, message, sender_id, sender_name, msg
 def _process_multi_notification(user_ids, room_id, message, sender_id, sender_name, msg_id=None, notification_type="chat_message", category=None):
     """
     The actual work function running in the background thread for one or more users.
+    Respects per-user NotificationPreference blocking before sending.
     """
     try:
         from django.contrib.auth import get_user_model
         from .fcm_utils import notify_multiple_users_via_fcm
+        from .models import NotificationPreference, NotificationLog
         User = get_user_model()
-        
+
         users = list(User.objects.filter(id__in=user_ids))
         if not users:
+            return
+
+        # Resolve category from mapping if not explicitly provided
+        if not category:
+            category = NOTIFICATION_TYPE_TO_CATEGORY.get(notification_type, "system")
+
+        # -----------------------------------------------------------------------
+        # Filter out users who have blocked this category.
+        # is_blocked=True means the user doesn't want this category.
+        # -----------------------------------------------------------------------
+        blocked_user_ids = set(
+            NotificationPreference.objects.filter(
+                user__in=users,
+                category=category,
+                is_blocked=True,
+            ).values_list('user_id', flat=True)
+        )
+
+        allowed_users = [u for u in users if u.id not in blocked_user_ids]
+        blocked_users  = [u for u in users if u.id in blocked_user_ids]
+
+        # Log blocked for audit trail
+        if blocked_users:
+            title = NOTIFICATION_TITLE_TEMPLATES.get(
+                notification_type, "Notification"
+            ).format(sender_name=sender_name)
+            NotificationLog.objects.bulk_create([
+                NotificationLog(
+                    user=u,
+                    title=title,
+                    body=message,
+                    data={
+                        "room_id": str(room_id),
+                        "user_id": str(sender_id),
+                        "sender_name": str(sender_name),
+                        "id": str(msg_id) if msg_id else "",
+                        "type": notification_type,
+                        "category": category,
+                    },
+                    category=category,
+                    status='blocked',
+                    error_message="User has blocked this notification category",
+                )
+                for u in blocked_users
+            ])
+            print(f"FCM [BATCH]: {len(blocked_users)} user(s) blocked category '{category}'. Skipped.")
+
+        if not allowed_users:
+            print(f"FCM [BATCH]: All recipients blocked '{category}'. Nothing to send.")
             return
 
         fcm_data = {
@@ -79,28 +152,22 @@ def _process_multi_notification(user_ids, room_id, message, sender_id, sender_na
             "sender_name": str(sender_name),
             "message": str(message),
             "id": str(msg_id) if msg_id else "",
-            "type": notification_type
+            "type": notification_type,
+            "category": category,  # Flutter uses this to double-check preference
         }
-        
-        print(f"FCM [BATCH_TRACE]: Starting background thread for {len(users)} users. Type: {notification_type}")
-        
-        # Map notification_type to category if not explicitly provided
-        if not category:
-            if notification_type == "chat_message":
-                category = "message"
-            elif notification_type in ["chess_invite", "invite_accepted", "invite_declined"]:
-                category = "invitation"
-            else:
-                category = "system"
 
-        title = f"New message from {sender_name}" if notification_type == "chat_message" else f"Chess Invite from {sender_name}"
-        
+        title = NOTIFICATION_TITLE_TEMPLATES.get(
+            notification_type, "Notification"
+        ).format(sender_name=sender_name)
+
+        print(f"FCM [BATCH_TRACE]: Sending to {len(allowed_users)} user(s). Type: {notification_type}, Category: {category}")
+
         notify_multiple_users_via_fcm(
-            users=users,
+            users=allowed_users,
             title=title,
             body=message,
             data=fcm_data,
-            category=category
+            category=category,
         )
     except Exception as e:
         logger.error(f"FCM: Background batch notification failed: {e}")

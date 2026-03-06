@@ -22,20 +22,21 @@ class CallConsumer(AsyncWebsocketConsumer):
             'message': f'Connected to room: {self.room_name}'
         }))
 
-        # Notify others in the room that a new peer has joined
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                'type': 'signal_message',
-                'message': {
-                    'type': 'peer_joined',
-                    'sender': 'system', # Identified as system to avoid client-side self-filtering
-                    'sender_channel': self.channel_name,
-                    'message': f'Peer joined room: {self.room_name}'
-                },
-                'sender': self.channel_name
-            }
-        )
+        # Notify others in the room - ONLY if it's a private game/user room
+        if self.room_name.startswith("user_") or self.room_name.startswith("game_call_"):
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'signal_message',
+                    'message': {
+                        'type': 'peer_joined',
+                        'sender': 'system', # Identified as system to avoid client-side self-filtering
+                        'sender_channel': self.channel_name,
+                        'message': f'Peer joined room: {self.room_name}'
+                    },
+                    'sender': self.channel_name
+                }
+            )
 
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(
