@@ -86,7 +86,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             msg_id = data.get("message_id")
             emoji = data.get("emoji")
             if msg_id and emoji:
-                await self.handle_reaction(self.user_id, msg_id, emoji)
+                action = await self.handle_reaction(self.user_id, msg_id, emoji)
                 # Broadcast reaction to room
                 await self.channel_layer.group_send(
                     self.room_group_name,
@@ -95,6 +95,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         "message_id": msg_id,
                         "user_id": self.user_id,
                         "emoji": emoji,
+                        "action": action,
                         "room_id": self.room_id
                     }
                 )
@@ -225,11 +226,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
             if existing:
                 if existing.emoji == emoji:
                     existing.delete()
+                    return "removed"
                 else:
                     existing.emoji = emoji
                     existing.save()
+                    return "added"
             else:
                 MessageReaction.objects.create(user=user, message=msg, emoji=emoji)
+                return "added"
         except Exception as e:
             print(f"[ERROR] handle_reaction: {e}")
        
