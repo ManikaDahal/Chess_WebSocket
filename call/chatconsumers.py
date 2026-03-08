@@ -104,7 +104,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         user_id = data.get("user_id")
         sender_name = data.get("sender_name") or "Unknown"
 
-        if message and user_id:
+        if (message and user_id):
             # If sender_name wasn't provided, try to look it up in local DB
             if sender_name == "Unknown":
                 sender_name = await self.get_sender_name(user_id)
@@ -120,6 +120,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 "message": message,
                 "user_id": user_id,
                 "sender_name": sender_name,
+                "trackingId": data.get("trackingId") # Return trackingId for replacement
             }
             if msg_info:
                 payload.update(msg_info)
@@ -128,7 +129,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 self.room_group_name,
                 payload
             )
-            print(f"[DEBUG] Received and broadcast: {message} from {sender_name} (ID: {msg_id})")
+            print(f"[DEBUG] Received and broadcast: {message} from {sender_name} (ID: {msg_id}, trackingId: {data.get('trackingId')})")
 
     async def chat_message(self, event):
         msg_data = {
@@ -316,20 +317,32 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def get_history(self):
+        from .models import MessageReaction
         try:
             # Get the most recent 50 messages, then reverse them
             messages = Message.objects.filter(room_id=self.room_id).order_by('-timestamp')[:50]
-            history = [
-                {
+            history = []
+            for m in messages:
+                # Aggregate reactions
+                reactions_list = []
+                reactions = MessageReaction.objects.filter(message=m)
+                for r in reactions:
+                    reactions_list.append({
+                        "user_id": r.user.id,
+                        "emoji": r.emoji
+                    })
+
+                history.append({
                     "id": m.id,
                     "message": m.text,
                     "user_id": m.sender.id,
                     "sender_name": m.sender.username,
                     "room_id": self.room_id,
-                    "timestamp": m.timestamp.isoformat()
-                }
-                for m in messages
-            ]
+                    "timestamp": m.timestamp.isoformat(),
+                    "is_delivered": m.is_delivered,
+                    "is_read": m.is_read,
+                    "reactions": reactions_list
+                })
             return list(reversed(history))
         except Exception as e:
             print(f"[ERROR] get_history: {e}")
