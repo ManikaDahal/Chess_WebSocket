@@ -44,13 +44,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data):
         data = json.loads(text_data)
-        
+
         # Handle ping/pong for keepalive
         if data.get("type") == "ping":
             await self.send(text_data=json.dumps({"type": "pong"}))
             print(f"[DEBUG] Sent pong response to room {self.room_id}")
             return
-        
+
         # Check if it's a history request
         if data.get("type") == "get_history":
             messages = await self.get_history()
@@ -60,6 +60,44 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 "room_id": self.room_id
             }))
             print(f"[DEBUG] Sent {len(messages)} history messages on request")
+            return
+
+        # Handle Message Status Updates (Delivered/Read)
+        if data.get("type") in ["message_delivered", "message_read"]:
+            msg_id = data.get("message_id")
+            if msg_id:
+                status_type = data.get("type").replace("message_", "") # 'delivered' or 'read'
+                await self.update_message_status(msg_id, status_type)
+                
+                # Broadcast status update to the room
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        "type": "message_status_update",
+                        "message_id": msg_id,
+                        "status": status_type,
+                        "room_id": self.room_id
+                    }
+                )
+            return
+
+        # Handle Reactions
+        if data.get("type") == "add_reaction":
+            msg_id = data.get("message_id")
+            emoji = data.get("emoji")
+            if msg_id and emoji:
+                await self.handle_reaction(self.user_id, msg_id, emoji)
+                # Broadcast reaction to room
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        "type": "message_reaction_update",
+                        "message_id": msg_id,
+                        "user_id": self.user_id,
+                        "emoji": emoji,
+                        "room_id": self.room_id
+                    }
+                )
             return
 
         message = data.get("message")
@@ -93,13 +131,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
             print(f"[DEBUG] Received and broadcast: {message} from {sender_name} (ID: {msg_id})")
 
     async def chat_message(self, event):
-        print("[DEBUG] Sending to frontend:", event)
         msg_data = {
             "type": "chat_message",
             "message": event["message"],
             "user_id": event["user_id"],
             "sender_name": event.get("sender_name", "Unknown"),
-            "room_id": self.room_id
+            "room_id": self.room_id,
+            "is_delivered": event.get("is_delivered", False),
+            "is_read": event.get("is_read", False),
+            "reactions": event.get("reactions", [])
         }
         # Include ID and timestamp if present
         if "id" in event:
@@ -108,6 +148,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
             msg_data["timestamp"] = event["timestamp"]
 
         await self.send(text_data=json.dumps(msg_data))
+
+    async def message_status_update(self, event):
+        await self.send(text_data=json.dumps(event))
+
+    async def message_reaction_update(self, event):
+        await self.send(text_data=json.dumps(event))
 
     @database_sync_to_async
     def get_sender_name(self, user_id):
@@ -142,11 +188,48 @@ class ChatConsumer(AsyncWebsocketConsumer):
              msg = Message.objects.create(room=room, sender=user, text=message)
              return {
                  "id": msg.id,
-                 "timestamp": msg.timestamp.isoformat()
+                 "timestamp": msg.timestamp.isoformat(),
+                 "is_delivered": msg.is_delivered,
+                 "is_read": msg.is_read
              }
         except Exception as e:
             print(f"[ERROR] save_message: {e}")
             return None
+
+    @database_sync_to_async
+    def update_message_status(self, msg_id, status_type):
+        try:
+            msg = Message.objects.get(id=msg_id)
+            if status_type == 'delivered':
+                msg.is_delivered = True
+            elif status_type == 'read':
+                msg.is_read = True
+                msg.is_delivered = True # Cannot be read if not delivered
+            msg.save()
+        except Exception as e:
+            print(f"[ERROR] update_message_status: {e}")
+
+    @database_sync_to_async
+    def handle_reaction(self, user_id, msg_id, emoji):
+        from .models import MessageReaction
+        from django.apps import apps
+        User = apps.get_model('chess_python', 'CustomUser')
+        try:
+            user = User.objects.get(id=user_id)
+            msg = Message.objects.get(id=msg_id)
+            
+            # Toggle reaction: if exists with same emoji, delete it. If different emoji, update it.
+            existing = MessageReaction.objects.filter(user=user, message=msg).first()
+            if existing:
+                if existing.emoji == emoji:
+                    existing.delete()
+                else:
+                    existing.emoji = emoji
+                    existing.save()
+            else:
+                MessageReaction.objects.create(user=user, message=msg, emoji=emoji)
+        except Exception as e:
+            print(f"[ERROR] handle_reaction: {e}")
        
 
     # @database_sync_to_async
