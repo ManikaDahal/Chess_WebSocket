@@ -140,7 +140,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
             "room_id": self.room_id,
             "is_delivered": event.get("is_delivered", False),
             "is_read": event.get("is_read", False),
-            "reactions": event.get("reactions", [])
+            "reactions": event.get("reactions", []),
+            "trackingId": event.get("trackingId")
         }
         # Include ID and timestamp if present
         if "id" in event:
@@ -320,7 +321,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         from .models import MessageReaction
         try:
             # Get the most recent 50 messages, then reverse them
-            messages = Message.objects.filter(room_id=self.room_id).order_by('-timestamp')[:50]
+            messages = Message.objects.filter(room_id=self.room_id).select_related('sender').order_by('-timestamp')[:50]
             history = []
             for m in messages:
                 # Aggregate reactions
