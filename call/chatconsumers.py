@@ -86,19 +86,27 @@ class ChatConsumer(AsyncWebsocketConsumer):
             msg_id = data.get("message_id")
             emoji = data.get("emoji")
             if msg_id and emoji:
-                action = await self.handle_reaction(self.user_id, msg_id, emoji)
-                # Broadcast reaction to room
-                await self.channel_layer.group_send(
-                    self.room_group_name,
-                    {
-                        "type": "message_reaction_update",
-                        "message_id": msg_id,
-                        "user_id": self.user_id,
-                        "emoji": emoji,
-                        "action": action,
-                        "room_id": self.room_id
-                    }
-                )
+                result = await self.handle_reaction(self.user_id, msg_id, emoji)
+                if result:
+                    action, msg = result
+                    # Broadcast reaction to room
+                    await self.channel_layer.group_send(
+                        self.room_group_name,
+                        {
+                            "type": "message_reaction_update",
+                            "message_id": msg_id,
+                            "user_id": self.user_id,
+                            "emoji": emoji,
+                            "action": action,
+                            "room_id": self.room_id
+                        }
+                    )
+                    
+                    # Notify sender of reaction
+                    if action == "added" and msg and msg.sender.id != self.user_id:
+                        reactor_name = await self.get_sender_name(self.user_id)
+                        notif_text = f"{reactor_name} reacted {emoji} to your message: '{msg.text[:20]}'"
+                        await self.send_reaction_notification(msg.sender.id, notif_text, reactor_name, msg_id)
             return
 
         message = data.get("message")
@@ -226,16 +234,42 @@ class ChatConsumer(AsyncWebsocketConsumer):
             if existing:
                 if existing.emoji == emoji:
                     existing.delete()
-                    return "removed"
+                    return "removed", msg
                 else:
                     existing.emoji = emoji
                     existing.save()
-                    return "added"
+                    return "added", msg
             else:
                 MessageReaction.objects.create(user=user, message=msg, emoji=emoji)
-                return "added"
+                return "added", msg
         except Exception as e:
             print(f"[ERROR] handle_reaction: {e}")
+            return None
+
+    @database_sync_to_async
+    def send_reaction_notification(self, receiver_id, message, sender_name, msg_id):
+        from django.apps import apps
+        from .notification_utils import notify_user_background
+        User = apps.get_model('chess_python', 'CustomUser')
+        try:
+            receiver = User.objects.get(id=receiver_id)
+            room = ChatRoom.objects.get(id=int(self.room_id))
+            sender = User.objects.get(id=self.user_id)
+            
+            Notification.objects.create(user=receiver, sender=sender, message=message, room=room)
+            
+            notify_user_background(
+                user_id=receiver.id,
+                room_id=self.room_id,
+                message=message,
+                sender_id=sender.id,
+                sender_name=sender_name,
+                msg_id=msg_id,
+                notification_type="chat_message",
+                category="message"
+            )
+        except Exception as e:
+            print(f"[ERROR] send_reaction_notification: {e}")
        
 
     # @database_sync_to_async
