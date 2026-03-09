@@ -265,7 +265,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 sender_id=sender.id,
                 sender_name=sender_name,
                 msg_id=msg_id,
-                notification_type="chat_message",
+                notification_type="reaction",
                 category="message"
             )
         except Exception as e:
