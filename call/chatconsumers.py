@@ -89,6 +89,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 result = await self.handle_reaction(self.user_id, msg_id, emoji)
                 if result:
                     action, msg = result
+                    reactor_name = await self.get_sender_name(self.user_id)
                     # Broadcast reaction to room
                     await self.channel_layer.group_send(
                         self.room_group_name,
@@ -96,15 +97,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
                             "type": "message_reaction_update",
                             "message_id": msg_id,
                             "user_id": self.user_id,
+                            "sender_name": reactor_name,
                             "emoji": emoji,
                             "action": action,
                             "room_id": self.room_id
                         }
                     )
-                    
-                    # Notify sender of reaction
+                    # Notify sender of reaction via FCM (background push)
                     if action == "added" and msg and msg.sender.id != self.user_id:
-                        reactor_name = await self.get_sender_name(self.user_id)
                         notif_text = f"{reactor_name} reacted {emoji} to your message: '{msg.text[:20]}'"
                         await self.send_reaction_notification(msg.sender.id, notif_text, reactor_name, msg_id)
             return
