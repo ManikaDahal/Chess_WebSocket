@@ -20,7 +20,7 @@ ALLOWED_HOSTS = [
     '.onrender.com',
     'localhost',
     '127.0.0.1',
-    '127.0.0.1',
+    '*', # Temporarily allow all for easier debugging of cross-origin connection issues
 ]
 
 # Render puts the application behind a proxy, so we need to trust the X-Forwarded-Proto header
@@ -85,9 +85,10 @@ ASGI_APPLICATION = 'websocket_project.asgi.application'
 # WebSocket configuration
 CHANNEL_LAYERS = {
     'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        # CRITICAL: Using Redis instead of InMemoryChannelLayer for stable multi-worker routing on Render
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            # Increase timeout to prevent disconnections
+            "hosts": [os.environ.get('REDIS_URL', 'redis://localhost:6379')],
             'expiry': 60,  # Messages expire after 60 seconds
         }
     }
