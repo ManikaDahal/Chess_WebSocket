@@ -1,9 +1,9 @@
-from call.notification_utils import notify_room_members_background
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
-from .models import ChatRoom, Message, Notification
-from .notification_utils import notify_user_background
+from .models import ChatRoom, Message
+from notifications.models import Notification
+from notifications.utils import notify_user_background, notify_multiple_users_background
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -249,7 +249,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def send_reaction_notification(self, receiver_id, message, sender_name, msg_id):
         from django.apps import apps
-        from .notification_utils import notify_user_background
         User = apps.get_model('chess_python', 'CustomUser')
         try:
             receiver = User.objects.get(id=receiver_id)
@@ -271,44 +270,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             print(f"[ERROR] send_reaction_notification: {e}")
        
-
-    # @database_sync_to_async
-    # def create_notification(self, sender_id, message, sender_name, msg_id=None):
-    #     from django.apps import apps
-    #     from .notification_utils import notify_user_background
-    #     User = apps.get_model('chess_python', 'CustomUser')
-    #     try:
-    #         room = ChatRoom.objects.get(id=int(self.room_id))
-    #         sender = User.objects.get(id=int(sender_id))
-    #         participants = room.users.exclude(id=sender.id).distinct()
-    #         print(f"[DEBUG] create_notification: Sender {sender_id}. Total users in room: {room.users.count()}")
-    #         print(f"[DEBUG] Participants to notify: {[p.username for p in participants]}")
-            
-    #         for user in participants:
-    #             Notification.objects.create(user=user, sender=sender, message=message, room=room)
-    #             # Global notification: Notify the user via non-blocking FCM
-    #             print(f"FCM [DEBUG]: Triggering backend FCM for user {user.id} ({user.username}) in Room {self.room_id}")
-    #             if participants.count() == 1:
-    #                 receiver = participants.first()
-    #                 notify_user_background(receiver.id, self.room_id, message, sender.id, sender_name, msg_id=msg_id)
-                
-    #             elif participants.count() > 1:
-    #                 notify_room_members_background(
-    #                 room_id=self.room_id,
-    #                  message=message,
-    #                  sender_id=sender.id,
-    #                   sender_name=sender_name,
-    #                   msg_id=msg_id
-    #                   )
-    #     except Exception as e:
-    #          print(f"[ERROR] create_notification: {e}")
-
     @database_sync_to_async
     def create_notification(self, sender_id, message, sender_name, msg_id=None):
         from django.apps import apps
-        from .notification_utils import notify_user_background
         User = apps.get_model('chess_python', 'CustomUser')
-        from chess_python.models import FCMToken
         
         try:
             room = ChatRoom.objects.get(id=int(self.room_id))
@@ -319,14 +284,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 return
 
             # Special Logic for Room 1 (General Room): 
-            # Notify ALL users who have FCM tokens, not just those currently in room.users
             if int(self.room_id) == 1:
                 print(f"[DEBUG] FCM_TRIGGER: Room 1 (General) detected. Querying all users with tokens...")
-                # Fetch users who have at least one token
                 users_with_tokens = User.objects.filter(fcm_tokens__isnull=False).exclude(id=sender.id).distinct()
                 participants = users_with_tokens
             else:
-                participants = room.users.exclude(id=sender.id).distinct()
+                participants = room.users.exclude(id=sender_id).distinct()
 
             participant_list = list(participants.values_list('username', flat=True))
             print(f"[DEBUG] FCM_TRIGGER: Room {self.room_id}. Sender {sender.username} (ID: {sender.id})")
@@ -335,7 +298,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             if not participant_list:
                 print(f"[WARNING] FCM_TRIGGER: No matching users/tokens found for Room {self.room_id}")
 
-            # Create DB notifications in bulk to avoid multiple queries
+            # Create DB notifications
             notifs_to_create = [
                 Notification(user=user, sender=sender, message=message, room=room)
                 for user in participants
@@ -347,7 +310,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             # Trigger batch background FCM notification
             user_ids = list(participants.values_list('id', flat=True))
             if user_ids:
-                from .notification_utils import notify_multiple_users_background
                 print(f"FCM [LOG_TRACE]: Triggering batch notification for {len(user_ids)} users.")
                 notify_multiple_users_background(user_ids, self.room_id, message, sender.id, sender_name, msg_id=msg_id)
         except Exception as e:

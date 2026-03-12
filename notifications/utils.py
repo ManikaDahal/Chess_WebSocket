@@ -14,7 +14,6 @@ NOTIFICATION_TYPE_TO_CATEGORY = {
     "chess_invite":    "invitation",
     "invite_accepted": "invitation",
     "invite_declined": "invitation",
-    # "game_result":   "game_result",  # <-- example: uncomment to add a type
 }
 
 # Title template per notification_type. Use {sender_name} as placeholder.
@@ -24,14 +23,12 @@ NOTIFICATION_TITLE_TEMPLATES = {
     "chess_invite":    "Chess Invite from {sender_name}",
     "invite_accepted": "{sender_name} accepted your invite!",
     "invite_declined": "{sender_name} declined your invite.",
-    # "game_result":   "Game result — {sender_name}",
 }
 
 
 def notify_user_background(user_id, room_id, message, sender_id, sender_name, msg_id=None, notification_type="chat_message", category=None):
     """
     Entry point to trigger an FCM notification in a background thread.
-    This prevents the WebSocket consumer from hanging.
     """
     thread = threading.Thread(
         target=_process_notification,
@@ -56,10 +53,9 @@ def notify_multiple_users_background(user_ids, room_id, message, sender_id, send
 def notify_room_members_background(room_id, message, sender_id, sender_name, msg_id=None):
     """
     Sends FCM notification to all members of a room except the sender.
-    Optimized to use batch processing.
     """
     try:
-        from call.models import ChatRoom
+        from chat.models import ChatRoom
 
         room = ChatRoom.objects.get(id=room_id)
         participants = room.users.exclude(id=sender_id)
@@ -87,7 +83,6 @@ def _process_notification(user_id, room_id, message, sender_id, sender_name, msg
 def _process_multi_notification(user_ids, room_id, message, sender_id, sender_name, msg_id=None, notification_type="chat_message", category=None):
     """
     The actual work function running in the background thread for one or more users.
-    Respects per-user NotificationPreference blocking before sending.
     """
     try:
         from django.contrib.auth import get_user_model
@@ -103,10 +98,6 @@ def _process_multi_notification(user_ids, room_id, message, sender_id, sender_na
         if not category:
             category = NOTIFICATION_TYPE_TO_CATEGORY.get(notification_type, "system")
 
-        # -----------------------------------------------------------------------
-        # Filter out users who have blocked this category.
-        # is_blocked=True means the user doesn't want this category.
-        # -----------------------------------------------------------------------
         blocked_user_ids = set(
             NotificationPreference.objects.filter(
                 user__in=users,
@@ -155,7 +146,7 @@ def _process_multi_notification(user_ids, room_id, message, sender_id, sender_na
             "message": str(message),
             "id": str(msg_id) if msg_id else "",
             "type": notification_type,
-            "category": category,  # Flutter uses this to double-check preference
+            "category": category,
         }
 
         title = NOTIFICATION_TITLE_TEMPLATES.get(

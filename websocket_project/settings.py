@@ -44,6 +44,10 @@ INSTALLED_APPS = [
     'rest_framework',  # For history API
     'rest_framework_simplejwt', # For JWT authentication
     'call',  # WebSocket consumer app
+    'chat',
+    'game',
+    'media',
+    'notifications',
     'chess_python', # shared user app
     'cloudinary_storage', # Cloudinary storage backend
     'cloudinary', # Cloudinary SDK

@@ -9,9 +9,12 @@ from django.urls import re_path
 from django.views.static import serve
 
 
-from call.views import chat_history, get_or_create_private_room, send_invite, accept_invite, decline_invite, pending_invites, upload_recording, update_notification_status, get_notification_preferences, update_notification_preference
-from call.video_views import list_videos, get_video_detail, stream_video, upload_video, delete_video, video_comments, toggle_reaction
-from call.voice_views import upload_voice_samples, chat_with_self, get_voice_status, delete_voice_profile
+from chat.views import chat_history, get_or_create_private_room
+from game.views import send_invite, accept_invite, decline_invite, pending_invites
+from media.views import upload_recording
+from media.video_views import list_videos, get_video_detail, stream_video, upload_video, delete_video, video_comments, toggle_reaction
+from media.voice_views import upload_voice_samples, chat_with_self, get_voice_status, delete_voice_profile
+from notifications.views import update_notification_status, get_notification_preferences, update_notification_preference
 
 def home(request):
     return HttpResponse("WebSocket is running successfully ")

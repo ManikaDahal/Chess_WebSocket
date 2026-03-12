@@ -140,15 +140,11 @@ def notify_multiple_users_via_fcm(users, title, body, data=None, category='syste
     
     if response:
         # 5. Update logs with FCM message IDs where possible
-        # Note: messaging.send_each returns responses in the same order as tokens
-        # We can't easily map back if we have multiple tokens per user and some fail,
-        # but we'll try to update the log status at least.
         success_user_ids = set()
         for idx, res in enumerate(response.responses):
             if res.success:
                 u_id = token_to_user_id[all_tokens[idx]]
                 success_user_ids.add(u_id)
-                # Assign the first success message ID to the log
                 log = log_map.get(u_id)
                 if log and not log.message_id:
                     log.message_id = res.message_id

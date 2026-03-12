@@ -8,7 +8,6 @@ class GameConsumer(AsyncWebsocketConsumer):
         self.room_id = self.scope['url_route']['kwargs']['room_id']
         self.room_group_name = f'game_{self.room_id}'
 
-        # Join room group
         await self.channel_layer.group_add(
             self.room_group_name,
             self.channel_name
@@ -31,7 +30,6 @@ class GameConsumer(AsyncWebsocketConsumer):
         print(f"[GAME] User connected to room {self.room_id}")
 
     async def disconnect(self, close_code):
-        # Leave room group
         await self.channel_layer.group_discard(
             self.room_group_name,
             self.channel_name
@@ -60,13 +58,11 @@ class GameConsumer(AsyncWebsocketConsumer):
                 }
             )
         elif message_type == 'ping':
-            # Heartbeat from client
             await self.send(text_data=json.dumps({
                 'type': 'pong',
                 'room_id': self.room_id
             }))
         elif message_type == 'reset':
-             # Clear history on reset
              await self.clear_history()
              
              await self.channel_layer.group_send(
@@ -118,10 +114,8 @@ class GameConsumer(AsyncWebsocketConsumer):
             print(f"Error clearing history: {e}")
 
     async def game_move(self, event):
-        # Send move to all WebSocket clients in the group (including sender) to verify delivery
         print(f"DELIVERING [Room {self.room_id}] to {self.channel_name}")
         await self.send(text_data=json.dumps(event['move_data']))
 
     async def game_reset(self, event):
-        # Send reset to all clients
         await self.send(text_data=json.dumps({'type': 'reset'}))
