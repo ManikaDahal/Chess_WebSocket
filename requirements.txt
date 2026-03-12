@@ -1,5 +1,4 @@
 # Minimal requirements for WebSocket-only Django project
-# This project ONLY needs WebSocket support, no database, no REST framework
 
 Django>=4.2,<5.0
 channels>=4.0.0
@@ -17,3 +16,9 @@ firebase-admin==6.6.0
 Pillow>=10.0.0
 cloudinary>=1.36.0
 django-cloudinary-storage>=0.3.0
+
+# Voice AI - Lightweight Models
+kokoro-onnx>=0.1.0
+onnxruntime>=1.16.0
+soundfile>=0.12.0
+numpy<2.0.0
