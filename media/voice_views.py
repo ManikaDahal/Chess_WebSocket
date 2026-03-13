@@ -142,6 +142,10 @@ def chat_with_self(request):
                 audio_content, synth_error = kokoro_manager.synthesize(response_text)
                 if audio_content:
                     print(f"DEBUG: [Kokoro] Synthesis success", flush=True)
+                else:
+                    print(f"ERROR: [Kokoro] Lightweight synthesis failed: {synth_error}", flush=True)
+                    # In lightweight mode on Render, we don't want to fall back to heavy local XTTS
+                    # but we can still try cloud fallbacks if available
 
             # Use Local XTTS if XTTS_BASE_URL env is set (works with AI_MODE=local OR as auto-fallback)
             xtts_url = os.environ.get('XTTS_BASE_URL', '')

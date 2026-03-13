@@ -170,6 +170,16 @@ class VoiceAIManager:
 
     def generate_response(self, prompt, context=""):
         """Generate text response using the configured engine."""
+        # Lightweight mode (preferred for Render): Use SiliconFlow Qwen2.5-0.5B
+        if self.ai_mode == 'lightweight':
+            sf_manager = SiliconFlowManager()
+            if sf_manager.api_key:
+                print(f"DEBUG: [SiliconFlow] Requesting chat completion with {self.preferred_model}", flush=True)
+                content, error = sf_manager.chat_completion(prompt)
+                if not error:
+                    return content
+                print(f"ERROR: [SiliconFlow] LLM failed: {error}. Falling back...", flush=True)
+
         if self.ai_mode == 'local' or not self.groq_key:
             return OllamaManager().generate_response(prompt)
             
@@ -352,6 +362,43 @@ class SiliconFlowManager:
             if response.status_code != 200:
                 return None, response.text
             return response.content, None
+        except Exception as e:
+            return None, str(e)
+
+    def chat_completion(self, prompt, system_prompt=None):
+        """Generate text response using SiliconFlow (OpenAI-compatible)."""
+        if not self.api_key:
+            return None, "Error: SILICONFLOW_API_KEY not found."
+
+        url = f"{self.API_URL}/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        if not system_prompt:
+            system_prompt = (
+                "You are the user's digital twin. You should respond in a way that sounds like the user reflecting on themselves. "
+                "Keep responses concise and empathetic."
+            )
+
+        data = {
+            "model": os.environ.get('LLM_MODEL', 'Qwen/Qwen2.5-0.5B-Instruct'),
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt}
+            ],
+            "max_tokens": 150,
+            "temperature": 0.7
+        }
+
+        try:
+            response = requests.post(url, headers=headers, json=data, timeout=30)
+            if response.status_code != 200:
+                return None, f"SiliconFlow API Error {response.status_code}: {response.text}"
+            
+            result = response.json()
+            return result['choices'][0]['message']['content'], None
         except Exception as e:
             return None, str(e)
 
