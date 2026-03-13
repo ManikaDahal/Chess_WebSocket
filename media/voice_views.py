@@ -129,13 +129,12 @@ def chat_with_self(request):
         # 3. Audio Generation (from Cache, ElevenLabs, SiliconFlow, or Local XTTS)
         audio_url = None
         synth_error = None
+        audio_content = None  # Always initialize so it's never unbound
         
         if cache_entry:
             print(f"DEBUG: Cache hit for message hash {text_hash}", flush=True)
             audio_url = cache_entry.audio_file.url
         else:
-            audio_content = None
-            
             # Prioritize Kokoro for lightweight mode or as high-efficiency local fallback
             if ai_manager.ai_mode == 'lightweight':
                 print(f"DEBUG: [Kokoro] Attempting lightweight synthesis", flush=True)
@@ -143,38 +142,39 @@ def chat_with_self(request):
                 if audio_content:
                     print(f"DEBUG: [Kokoro] Synthesis success", flush=True)
                 else:
-                    print(f"ERROR: [Kokoro] Lightweight synthesis failed: {synth_error}", flush=True)
-                    # In lightweight mode on Render, we don't want to fall back to heavy local XTTS
-                    # but we can still try cloud fallbacks if available
-
-            # Use Local XTTS if XTTS_BASE_URL env is set (works with AI_MODE=local OR as auto-fallback)
-            xtts_url = os.environ.get('XTTS_BASE_URL', '')
-            if xtts_url and profile.reference_audio:
-                try:
-                    print(f"DEBUG: [XTTS] Fetching reference audio from {profile.reference_audio.url}", flush=True)
-                    ref_response = requests.get(profile.reference_audio.url, timeout=30)
-                    if ref_response.status_code == 200:
-                        audio_content, synth_error = xtts_manager.synthesize(response_text, ref_response.content)
-                        print(f"DEBUG: [XTTS] Synthesis result — content={bool(audio_content)}, error={synth_error}", flush=True)
+                    print(f"ERROR: [Kokoro] Lightweight synthesis failed: {synth_error}. Trying SiliconFlow TTS...", flush=True)
+                    # Kokoro is unavailable on Render (model files not downloaded) — use SiliconFlow CosyVoice
+                    if profile.siliconflow_voice_uri or profile.reference_audio:
+                        voice_id = profile.siliconflow_voice_uri or profile.reference_audio.url
+                        audio_content, sf_error = sf_manager.zero_shot_tts(response_text, voice_id)
+                        if sf_error:
+                            synth_error = f"Kokoro: {synth_error} | SiliconFlow TTS: {sf_error}"
+                            print(f"ERROR: [SiliconFlow TTS] Failed: {sf_error}", flush=True)
+                        else:
+                            print(f"DEBUG: [SiliconFlow TTS] Synthesis success", flush=True)
                     else:
-                        synth_error = f"Failed to download reference audio: {ref_response.status_code}"
-                        print(f"ERROR: [XTTS] {synth_error}", flush=True)
-                except Exception as e:
-                    synth_error = f"Error during local synthesis prep: {str(e)}"
-                    print(f"CRITICAL: [XTTS] {synth_error}", flush=True)
+                        synth_error = f"Kokoro failed and no voice profile found for SiliconFlow TTS."
 
-            # Try ElevenLabs first if previously successful and not in local mode
+            # Only try XTTS if we're NOT in lightweight mode and have a configured server
+            if not audio_content and ai_manager.ai_mode != 'lightweight':
+                xtts_url = os.environ.get('XTTS_BASE_URL', '')
+                if xtts_url and profile.reference_audio:
+                    try:
+                        print(f"DEBUG: [XTTS] Fetching reference audio from {profile.reference_audio.url}", flush=True)
+                        ref_response = requests.get(profile.reference_audio.url, timeout=30)
+                        if ref_response.status_code == 200:
+                            audio_content, synth_error = xtts_manager.synthesize(response_text, ref_response.content)
+                            print(f"DEBUG: [XTTS] Synthesis result — content={bool(audio_content)}, error={synth_error}", flush=True)
+                        else:
+                            synth_error = f"Failed to download reference audio: {ref_response.status_code}"
+                    except Exception as e:
+                        synth_error = f"Error during local synthesis prep: {str(e)}"
+                        print(f"CRITICAL: [XTTS] {synth_error}", flush=True)
+
+            # Try ElevenLabs if still no audio and not in local mode
             if not audio_content and ai_manager.ai_mode != 'local' and profile.elevenlabs_voice_id:
                 audio_content, synth_error = ai_manager.text_to_speech(response_text, profile.elevenlabs_voice_id)
             
-            # Fallback to SiliconFlow (Free/Low Cost)
-            if not audio_content and ai_manager.ai_mode != 'local' and profile.reference_audio:
-                # Prefer the uploaded SiliconFlow URI if we have it
-                voice_id = profile.siliconflow_voice_uri or profile.reference_audio.url
-                audio_content, sf_error = sf_manager.zero_shot_tts(response_text, voice_id)
-                if sf_error:
-                    synth_error = f"{synth_error} | {sf_error}" if synth_error else sf_error
-                
         if audio_content:
             # Save to Cloudinary for caching
             filename = f"voice_{user.id}_{uuid.uuid4().hex}.mp3"
