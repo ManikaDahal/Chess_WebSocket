@@ -170,40 +170,45 @@ class VoiceAIManager:
 
     def generate_response(self, prompt, context=""):
         """Generate text response using the configured engine."""
-        # Lightweight mode (preferred for Render): Use SiliconFlow Qwen2.5-0.5B
+        system_prompt = (
+            "You are the user's digital twin. Respond in a way that sounds like the user reflecting on themselves. "
+            "Keep responses concise and empathetic."
+        )
+
+        # Lightweight mode (preferred for Render): Use SiliconFlow with Qwen2.5-7B (smallest available)
         if self.ai_mode == 'lightweight':
             sf_manager = SiliconFlowManager()
             if sf_manager.api_key:
-                print(f"DEBUG: [SiliconFlow] Requesting chat completion with {self.preferred_model}", flush=True)
-                content, error = sf_manager.chat_completion(prompt)
+                print(f"DEBUG: [SiliconFlow] Requesting chat completion", flush=True)
+                content, error = sf_manager.chat_completion(prompt, system_prompt=system_prompt)
                 if not error:
                     return content
-                print(f"ERROR: [SiliconFlow] LLM failed: {error}. Falling back...", flush=True)
+                print(f"ERROR: [SiliconFlow] LLM failed: {error}.", flush=True)
+            # If SiliconFlow fails and we're in lightweight mode, return a graceful error
+            # Do NOT fall back to Ollama as it requires a live local server
+            return f"Error: AI service unavailable. Please check SILICONFLOW_API_KEY."
 
-        if self.ai_mode == 'local' or not self.groq_key:
+        # Cloud mode: Try Groq
+        if self.ai_mode == 'cloud' and self.groq_key:
+            return self._groq_generate(prompt, system_prompt)
+
+        # Local mode: Use Ollama
+        if self.ai_mode == 'local':
             return OllamaManager().generate_response(prompt)
-            
+
+        # Default: if no mode matches, use Groq or graceful error
+        if self.groq_key:
+            return self._groq_generate(prompt, system_prompt)
+        return "Error: No AI service configured. Please set SILICONFLOW_API_KEY or GROQ_API_KEY."
+
+    def _groq_generate(self, prompt, system_prompt):
+        """Generate using Groq API with llama-3.2-1b-preview (smallest available on Groq)."""
         headers = {
             "Authorization": f"Bearer {self.groq_key}",
             "Content-Type": "application/json"
         }
-        
-        system_prompt = (
-            "You are the user's digital twin. You should respond in a way that sounds like the user reflecting on themselves. "
-            "Keep responses concise and empathetic."
-        )
-        
-        
-        # Determine model to use
-        model = self.preferred_model
-        if self.ai_mode == 'lightweight' and model == 'qwen2.5-0.5b-instruct':
-            # Ensure we use a model known to be available on Groq or SiliconFlow
-            # For Groq, the closest small model might be llama-3.2-1b-preview
-            # If using SiliconFlow, qwen2.5-0.5b-instruct is directly available.
-            pass 
-
         data = {
-            "model": model,
+            "model": "llama-3.2-1b-preview",  # Smallest available model on Groq
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt}
@@ -211,25 +216,18 @@ class VoiceAIManager:
             "temperature": 0.7,
             "max_tokens": 150
         }
-        
         try:
             print(f"DEBUG: [Groq] Requesting response for prompt: {prompt[:50]}...", flush=True)
             response = requests.post(self.GROQ_API_URL, headers=headers, json=data)
-            
             if response.status_code != 200:
-                error_msg = f"Groq API Error {response.status_code}: {response.text}"
-                print(f"ERROR: {error_msg}", flush=True)
-                # Fallback to local if cloud fails
-                return OllamaManager().generate_response(prompt)
-                
+                print(f"ERROR: Groq API Error {response.status_code}: {response.text}", flush=True)
+                return f"Error: Groq API Error {response.status_code}"
             result = response.json()
-            content = result['choices'][0]['message']['content']
-            print(f"DEBUG: [Groq] Generated response successfully: {content[:50]}...", flush=True)
-            return content
+            return result['choices'][0]['message']['content']
         except Exception as e:
             print(f"CRITICAL: Exception during Groq generation: {str(e)}", flush=True)
-            return OllamaManager().generate_response(prompt)
-
+            return f"Error: {str(e)}"
+    
     def create_user_voice(self, user_name, audio_files):
         """Create an Instant Voice Clone on ElevenLabs."""
         if not self.elevenlabs_key:
@@ -383,7 +381,7 @@ class SiliconFlowManager:
             )
 
         data = {
-            "model": os.environ.get('LLM_MODEL', 'Qwen/Qwen2.5-0.5B-Instruct'),
+            "model": os.environ.get('LLM_MODEL', 'Qwen/Qwen2.5-7B-Instruct'),
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": prompt}
