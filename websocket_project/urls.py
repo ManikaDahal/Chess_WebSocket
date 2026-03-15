@@ -19,8 +19,12 @@ from notifications.views import update_notification_status, get_notification_pre
 def home(request):
     return HttpResponse("WebSocket is running successfully ")
 
+def trigger_error(request):
+    division_by_zero = 1 / 0
+
 urlpatterns = [
     # No REST API endpoints - all handled by Vercel deployment
+    path('trigger-error/', trigger_error, name='trigger-error'),
     path('admin/', admin.site.urls),
     path('api/chat/history/<int:room_id>/', chat_history),
     path('api/chat/get_or_create_room/', get_or_create_private_room),
