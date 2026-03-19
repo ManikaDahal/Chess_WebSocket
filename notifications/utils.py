@@ -28,25 +28,27 @@ NOTIFICATION_TITLE_TEMPLATES = {
 }
 
 
-def notify_user_background(user_id, room_id, message, sender_id, sender_name, msg_id=None, notification_type="chat_message", category=None):
+def notify_user_background(user_id, room_id, message, sender_id, sender_name, msg_id=None, notification_type="chat_message", category=None, extra_data=None):
     """
     Entry point to trigger an FCM notification in a background thread.
+    extra_data: optional dict of additional key/value pairs merged into the FCM payload.
     """
     thread = threading.Thread(
         target=_process_notification,
-        args=(user_id, room_id, message, sender_id, sender_name, msg_id, notification_type, category),
+        args=(user_id, room_id, message, sender_id, sender_name, msg_id, notification_type, category, extra_data),
         daemon=True
     )
     thread.start()
 
 
-def notify_multiple_users_background(user_ids, room_id, message, sender_id, sender_name, msg_id=None, notification_type="chat_message", category=None):
+def notify_multiple_users_background(user_ids, room_id, message, sender_id, sender_name, msg_id=None, notification_type="chat_message", category=None, extra_data=None):
     """
     Triggers batch FCM notifications for multiple users in a single background thread.
+    extra_data: optional dict of additional key/value pairs merged into the FCM payload.
     """
     thread = threading.Thread(
         target=_process_multi_notification,
-        args=(user_ids, room_id, message, sender_id, sender_name, msg_id, notification_type, category),
+        args=(user_ids, room_id, message, sender_id, sender_name, msg_id, notification_type, category, extra_data),
         daemon=True
     )
     thread.start()
@@ -77,12 +79,12 @@ def notify_room_members_background(room_id, message, sender_id, sender_name, msg
         print(f"FCM Room Notify Error: {e}")
 
 
-def _process_notification(user_id, room_id, message, sender_id, sender_name, msg_id=None, notification_type="chat_message", category=None):
+def _process_notification(user_id, room_id, message, sender_id, sender_name, msg_id=None, notification_type="chat_message", category=None, extra_data=None):
     """Wrapper for single user notification in background."""
-    _process_multi_notification([user_id], room_id, message, sender_id, sender_name, msg_id, notification_type, category)
+    _process_multi_notification([user_id], room_id, message, sender_id, sender_name, msg_id, notification_type, category, extra_data)
 
 
-def _process_multi_notification(user_ids, room_id, message, sender_id, sender_name, msg_id=None, notification_type="chat_message", category=None):
+def _process_multi_notification(user_ids, room_id, message, sender_id, sender_name, msg_id=None, notification_type="chat_message", category=None, extra_data=None):
     """
     The actual work function running in the background thread for one or more users.
     """
@@ -150,6 +152,10 @@ def _process_multi_notification(user_ids, room_id, message, sender_id, sender_na
             "type": notification_type,
             "category": category,
         }
+        # Merge caller-supplied extra fields (all values must be strings for FCM)
+        if extra_data:
+            for k, v in extra_data.items():
+                fcm_data[str(k)] = str(v) if v is not None else ""
 
         title = NOTIFICATION_TITLE_TEMPLATES.get(
             notification_type, "Notification"
