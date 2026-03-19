@@ -11,6 +11,8 @@ class GameInvite(models.Model):
     receiver = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="received_invites")
     room = models.ForeignKey('chat.ChatRoom', on_delete=models.CASCADE)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    game_type = models.CharField(max_length=20, default='chess') # 'chess' or 'snake'
+    board_id = models.IntegerField(null=True, blank=True) # For snake game specifically
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

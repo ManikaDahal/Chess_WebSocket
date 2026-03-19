@@ -12,6 +12,7 @@ NOTIFICATION_TYPE_TO_CATEGORY = {
     "chat_message":    "message",
     "reaction":        "message",
     "chess_invite":    "invitation",
+    "snake_invite":    "invitation",
     "invite_accepted": "invitation",
     "invite_declined": "invitation",
 }
@@ -21,6 +22,7 @@ NOTIFICATION_TITLE_TEMPLATES = {
     "chat_message":    "New message from {sender_name}",
     "reaction":        "{sender_name} reacted to your message",
     "chess_invite":    "Chess Invite from {sender_name}",
+    "snake_invite":    "Snake Game Invite from {sender_name}",
     "invite_accepted": "{sender_name} accepted your invite!",
     "invite_declined": "{sender_name} declined your invite.",
 }

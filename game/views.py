@@ -30,22 +30,33 @@ def send_invite(request):
             room.users.add(sender, receiver)
             room.save()
 
+        game_type = request.data.get('game_type', 'chess')
+        board_id = request.data.get('board_id')
+
         invite = GameInvite.objects.create(
             sender=sender,
             receiver=receiver,
             room=room,
-            status='pending'
+            status='pending',
+            game_type=game_type,
+            board_id=board_id
         )
 
+        game_display_name = "Snake & Ladder" if game_type == 'snake' else "Chess"
+        
         notify_user_background(
             user_id=receiver.id,
             room_id=room.id,
-            message=f"{sender.username} invited you to play chess!",
+            message=f"{sender.username} invited you to play {game_display_name}!",
             sender_id=sender.id,
             sender_name=sender.username,
             msg_id=f"invite_{invite.id}",
-            notification_type="chess_invite",
-            category="invitation"
+            notification_type=f"{game_type}_invite",
+            category="invitation",
+            extra_data={
+                "board_id": board_id,
+                "game_type": game_type
+            }
         )
         
         return Response({
@@ -80,7 +91,11 @@ def accept_invite(request):
             sender_name=request.user.username,
             msg_id=f"accept_{invite.id}",
             notification_type="invite_accepted",
-            category="invitation"
+            category="invitation",
+            extra_data={
+                "game_type": invite.game_type,
+                "board_id": invite.board_id
+            }
         )
         
         return Response({
@@ -126,6 +141,8 @@ def pending_invites(request):
             "sender_id": invite.sender.id,
             "sender_name": invite.sender.username,
             "room_id": invite.room.id,
+            "game_type": invite.game_type,
+            "board_id": invite.board_id,
             "created_at": invite.created_at.isoformat()
         }
         for invite in invites
