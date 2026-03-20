@@ -54,8 +54,15 @@ urlpatterns = [
 
     
     path('', home),
-    # Serve media files (videos, thumbnails) in PRODUCTION
-    re_path(r'^media/(?P<path>.*)$', serve, {'document_root': settings.MEDIA_ROOT}),
-    # Force serve static files (CSS/JS) to fix Admin 404s on Render
-    re_path(r'^static/(?P<path>.*)$', serve, {'document_root': settings.STATIC_ROOT}),
 ]
+
+# Standard way to serve media files in Django
+if settings.DEBUG:
+    from django.conf.urls.static import static
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+else:
+    # In production, WhiteNoise handles STATIC_URL automatically.
+    # If using local media storage in production (non-Cloudinary), we still need this:
+    from django.conf.urls.static import static
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

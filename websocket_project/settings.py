@@ -144,13 +144,16 @@ USE_I18N = True
 USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# Allow deployment to succeed even if some static files are missing from manifest
+WHITENOISE_MANIFEST_STRICT = False
 
 # Media files (User uploads - videos, thumbnails)
 MEDIA_URL = '/media/'
-# MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # Cloudinary Configuration
 CLOUDINARY_STORAGE = {
