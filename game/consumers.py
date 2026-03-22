@@ -8,6 +8,7 @@ class GameConsumer(AsyncWebsocketConsumer):
         self.room_id = self.scope['url_route']['kwargs']['room_id']
         self.room_group_name = f'game_{self.room_id}'
 
+        self.user_id = None # To be set on join or identifiable from scope
         await self.channel_layer.group_add(
             self.room_group_name,
             self.channel_name
@@ -33,6 +34,15 @@ class GameConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_discard(
             self.room_group_name,
             self.channel_name
+        )
+        # Broadcast that user left so opponent knows
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'user_left_broadcast',
+                'room_id': self.room_id,
+                'user_id': self.user_id,
+            }
         )
         print(f"[GAME] User DISCONNECTED from room {self.room_id} (code: {close_code})")
 
@@ -73,12 +83,23 @@ class GameConsumer(AsyncWebsocketConsumer):
                 }
             )
         elif message_type == 'join':
-            user_id = data.get('user_id')
-            print(f"BROADCAST [Room {self.room_id}]: Player joined {user_id}")
+            self.user_id = data.get('user_id')
+            print(f"BROADCAST [Room {self.room_id}]: Player joined {self.user_id}")
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
                     'type': 'player_joined',
+                    'room_id': self.room_id,
+                    'user_id': self.user_id
+                }
+            )
+        elif message_type == 'leave':
+            user_id = data.get('user_id')
+            print(f"BROADCAST [Room {self.room_id}]: Player left {user_id}")
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'user_left_broadcast',
                     'room_id': self.room_id,
                     'user_id': user_id
                 }
@@ -134,6 +155,13 @@ class GameConsumer(AsyncWebsocketConsumer):
     async def player_joined(self, event):
         await self.send(text_data=json.dumps({
             'type': 'player_joined', 
+            'room_id': event['room_id'],
+            'user_id': event.get('user_id')
+        }))
+
+    async def user_left_broadcast(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'user_left',
             'room_id': event['room_id'],
             'user_id': event.get('user_id')
         }))
