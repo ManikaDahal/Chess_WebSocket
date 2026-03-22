@@ -23,6 +23,7 @@ class CallConsumer(AsyncWebsocketConsumer):
         # Notify others in the room - essential for initiating WebRTC handshakes
         if (self.room_name.startswith("user_") or 
             self.room_name.startswith("game_call_") or 
+            self.room_name.startswith("snake_call_") or 
             self.room_name == "chess_room_1"):
             await self.channel_layer.group_send(
                 self.room_group_name,

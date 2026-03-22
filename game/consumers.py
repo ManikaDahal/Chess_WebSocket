@@ -27,6 +27,14 @@ class GameConsumer(AsyncWebsocketConsumer):
             'type': 'connection_established',
             'room_id': self.room_id
         }))
+        
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'player_joined',
+                'room_id': self.room_id
+            }
+        )
         print(f"[GAME] User connected to room {self.room_id}")
 
     async def disconnect(self, close_code):
@@ -119,3 +127,9 @@ class GameConsumer(AsyncWebsocketConsumer):
 
     async def game_reset(self, event):
         await self.send(text_data=json.dumps({'type': 'reset'}))
+
+    async def player_joined(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'player_joined', 
+            'room_id': event['room_id']
+        }))
