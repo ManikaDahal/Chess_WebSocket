@@ -93,8 +93,8 @@ class GameConsumer(AsyncWebsocketConsumer):
                     'user_id': self.user_id
                 }
             )
-        elif message_type == 'leave':
-            user_id = data.get('user_id')
+        elif message_type == 'user_left' or message_type == 'leave':
+            user_id = data.get('user_id') or self.user_id
             print(f"BROADCAST [Room {self.room_id}]: Player left {user_id}")
             await self.channel_layer.group_send(
                 self.room_group_name,
