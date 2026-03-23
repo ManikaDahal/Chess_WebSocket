@@ -35,11 +35,11 @@ class GameConsumer(AsyncWebsocketConsumer):
             self.room_group_name,
             self.channel_name
         )
-        # Broadcast that user left so opponent knows
+        # Broadcast that user disconnected (unintentional)
         await self.channel_layer.group_send(
             self.room_group_name,
             {
-                'type': 'user_left_broadcast',
+                'type': 'player_disconnected',
                 'room_id': self.room_id,
                 'user_id': self.user_id,
             }
@@ -162,6 +162,13 @@ class GameConsumer(AsyncWebsocketConsumer):
     async def user_left_broadcast(self, event):
         await self.send(text_data=json.dumps({
             'type': 'user_left',
+            'room_id': event['room_id'],
+            'user_id': event.get('user_id')
+        }))
+
+    async def player_disconnected(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'player_disconnected',
             'room_id': event['room_id'],
             'user_id': event.get('user_id')
         }))
