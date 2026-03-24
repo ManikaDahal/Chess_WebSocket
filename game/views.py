@@ -162,23 +162,39 @@ def cancel_invite(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def pending_invites(request):
-    """Lists pending invitations for the user from the last 24 hours."""
+    """Lists pending invitations for the user (sent and received) from the last 24 hours."""
     time_threshold = timezone.now() - timedelta(hours=24)
-    invites = GameInvite.objects.filter(
+    
+    # Received invites
+    received_invites = GameInvite.objects.filter(
         receiver=request.user, 
         status='pending',
         created_at__gte=time_threshold
     ).order_by('-created_at')
-    data = [
-        {
+    
+    # Sent invites
+    sent_invites = GameInvite.objects.filter(
+        sender=request.user,
+        status='pending',
+        created_at__gte=time_threshold
+    ).order_by('-created_at')
+
+    def serialize_invite(invite, is_sent):
+        other_user = invite.receiver if is_sent else invite.sender
+        return {
             "id": invite.id,
             "sender_id": invite.sender.id,
             "sender_name": invite.sender.username,
+            "receiver_id": invite.receiver.id,
+            "receiver_name": invite.receiver.username,
+            "other_name": other_user.username,
             "room_id": invite.room.id,
             "game_type": invite.game_type,
             "board_id": invite.board_id,
             "created_at": invite.created_at.isoformat()
         }
-        for invite in invites
-    ]
-    return Response(data)
+
+    return Response({
+        "received": [serialize_invite(i, False) for i in received_invites],
+        "sent": [serialize_invite(i, True) for i in sent_invites]
+    })
