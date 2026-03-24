@@ -146,8 +146,9 @@ class GameConsumer(AsyncWebsocketConsumer):
             print(f"Error clearing history: {e}")
 
     async def game_move(self, event):
-        print(f"DELIVERING [Room {self.room_id}] to {self.channel_name}")
-        await self.send(text_data=json.dumps(event['move_data']))
+        if self.channel_name != event.get('sender_channel_name'):
+            print(f"DELIVERING [Room {self.room_id}] to {self.channel_name}")
+            await self.send(text_data=json.dumps(event['move_data']))
 
     async def game_reset(self, event):
         await self.send(text_data=json.dumps({'type': 'reset'}))
