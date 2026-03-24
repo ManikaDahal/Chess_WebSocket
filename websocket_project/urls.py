@@ -10,7 +10,7 @@ from django.views.static import serve
 
 
 from chat.views import chat_history, get_or_create_private_room, list_user_rooms
-from game.views import send_invite, accept_invite, decline_invite, pending_invites
+from game.views import send_invite, accept_invite, decline_invite, pending_invites, cancel_invite
 from media.views import upload_recording
 from media.video_views import list_videos, get_video_detail, stream_video, upload_video, delete_video, video_comments, toggle_reaction
 from media.voice_views import upload_voice_samples, chat_with_self, get_voice_status, delete_voice_profile
@@ -32,6 +32,7 @@ urlpatterns = [
     path('api/send-invite/', send_invite),
     path('api/accept-invite/', accept_invite),
     path('api/decline-invite/', decline_invite),
+    path('api/cancel-invite/', cancel_invite),
     path('api/pending-invites/', pending_invites),
     path('api/call/upload/', upload_recording, name='recording-upload'),
     path('api/notifications/update-status/', update_notification_status, name='update-notification-status'),

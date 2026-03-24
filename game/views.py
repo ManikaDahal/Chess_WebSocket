@@ -5,6 +5,8 @@ from rest_framework.permissions import IsAuthenticated
 from .models import GameInvite, GameMove
 from chat.models import ChatRoom
 from notifications.utils import notify_user_background
+from django.utils import timezone
+from datetime import timedelta
 from django.db.models import Count
 
 @api_view(['POST'])
@@ -130,11 +132,43 @@ def decline_invite(request):
     except GameInvite.DoesNotExist:
         return Response({"error": "Invitation not found"}, status=404)
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def cancel_invite(request):
+    """Allows the sender to cancel their own pending invitation."""
+    invite_id = request.data.get('invite_id')
+    try:
+        # Check that the invite exists, is pending, and belongs to the requester
+        invite = GameInvite.objects.get(id=invite_id, sender=request.user, status='pending')
+        invite.delete()
+        
+        # Optionally notify the receiver via background (FCM) so they can clear the UI
+        # Note: If the receiver is offline, they'll just see the invite is gone next time they fetch
+        notify_user_background(
+            user_id=invite.receiver.id,
+            room_id=invite.room.id,
+            message=f"{request.user.username} cancelled the invitation.",
+            sender_id=request.user.id,
+            sender_name=request.user.username,
+            msg_id=f"cancel_{invite_id}",
+            notification_type="invite_cancelled",
+            category="invitation"
+        )
+        
+        return Response({"message": "Invitation cancelled"})
+    except GameInvite.DoesNotExist:
+        return Response({"error": "Invitation not found or cannot be cancelled"}, status=404)
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def pending_invites(request):
-    """Lists pending invitations for the user."""
-    invites = GameInvite.objects.filter(receiver=request.user, status='pending')
+    """Lists pending invitations for the user from the last 24 hours."""
+    time_threshold = timezone.now() - timedelta(hours=24)
+    invites = GameInvite.objects.filter(
+        receiver=request.user, 
+        status='pending',
+        created_at__gte=time_threshold
+    ).order_by('-created_at')
     data = [
         {
             "id": invite.id,
