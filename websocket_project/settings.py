@@ -98,16 +98,25 @@ TEMPLATES = [
 ASGI_APPLICATION = 'websocket_project.asgi.application'
 
 # WebSocket configuration
-CHANNEL_LAYERS = {
-    'default': {
-        # CRITICAL: Using Redis instead of InMemoryChannelLayer for stable multi-worker routing on Render
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            "hosts": [os.environ.get('REDIS_URL', 'redis://localhost:6379')],
-            'expiry': 60,  # Messages expire after 60 seconds
+REDIS_URL = os.environ.get('REDIS_URL')
+
+if REDIS_URL:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                'hosts': [REDIS_URL],
+                'expiry': 60,
+            }
         }
     }
-}
+else:
+    print("WARNING: REDIS_URL not found. Falling back to InMemoryChannelLayer.")
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        }
+    }
 
 # Database - Not needed for WebSocket-only service
 # Using SQLite as placeholder (won't be used)

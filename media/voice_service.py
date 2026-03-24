@@ -4,9 +4,12 @@ from django.conf import settings
 import base64
 import io
 import numpy as np
+Kokoro = None
+# Lazy import Kokoro to prevent startup crash if soundfile/libsndfile is missing on Render
 try:
     from kokoro_onnx import Kokoro
-except ImportError:
+except Exception as e:
+    print(f"DEBUG: Kokoro-onnx top-level import skipped/failed: {e}")
     Kokoro = None
 
     
@@ -148,7 +151,12 @@ class KokoroTTSManager:
             samples, sample_rate = self._kokoro.create(text, voice=voice, speed=1.0, lang="en-us")
             
             # Convert float32 samples to int16 PCM for WAV
-            import soundfile as sf
+            try:
+                import soundfile as sf
+            except Exception as e:
+                print(f"ERROR: [Kokoro] soundfile import failed (likely missing libsndfile1 on Render): {e}", flush=True)
+                return None, f"System library missing: {e}"
+                
             buffer = io.BytesIO()
             sf.write(buffer, samples, sample_rate, format='WAV', subtype='PCM_16')
             return buffer.getvalue(), None
