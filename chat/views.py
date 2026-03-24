@@ -70,3 +70,33 @@ def get_or_create_private_room(request):
         return Response({"error": "One or both users not found"}, status=404)
     except Exception as e:
         return Response({"error": str(e)}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_user_rooms(request):
+    """Lists all chat rooms for the current user."""
+    user = request.user
+    # Filter rooms where the user is a participant
+    rooms = ChatRoom.objects.filter(users=user).annotate(u_count=Count('users'))
+    
+    data = []
+    for room in rooms:
+        # For a "Friend", we look for the other participant
+        other_user = room.users.exclude(id=user.id).first()
+        if other_user:
+            # Get the last message if any
+            last_msg = Message.objects.filter(room=room).order_by('-timestamp').first()
+            data.append({
+                "room_id": room.id,
+                "other_user": {
+                    "id": other_user.id,
+                    "username": other_user.username,
+                    "email": other_user.email,
+                },
+                "last_message": last_msg.text if last_msg else "No messages yet",
+                "timestamp": last_msg.timestamp.isoformat() if last_msg else room.created_at.isoformat(),
+            })
+            
+    # Sort by timestamp descending
+    data.sort(key=lambda x: x['timestamp'], reverse=True)
+    return Response(data)

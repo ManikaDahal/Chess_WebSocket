@@ -9,7 +9,7 @@ from django.urls import re_path
 from django.views.static import serve
 
 
-from chat.views import chat_history, get_or_create_private_room
+from chat.views import chat_history, get_or_create_private_room, list_user_rooms
 from game.views import send_invite, accept_invite, decline_invite, pending_invites
 from media.views import upload_recording
 from media.video_views import list_videos, get_video_detail, stream_video, upload_video, delete_video, video_comments, toggle_reaction
@@ -28,6 +28,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/chat/history/<int:room_id>/', chat_history),
     path('api/chat/get_or_create_room/', get_or_create_private_room),
+    path('api/chat/rooms/', list_user_rooms),
     path('api/send-invite/', send_invite),
     path('api/accept-invite/', accept_invite),
     path('api/decline-invite/', decline_invite),
