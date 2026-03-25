@@ -9,7 +9,7 @@ class GameInvite(models.Model):
     ]
     sender = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="sent_invites")
     receiver = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="received_invites")
-    room = models.ForeignKey('chat.ChatRoom', on_delete=models.CASCADE)
+    room = models.ForeignKey('chat.ChatRoom', on_delete=models.CASCADE, null=True, blank=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
     game_type = models.CharField(max_length=20, default='chess') # 'chess' or 'snake'
     board_id = models.IntegerField(null=True, blank=True) # For snake game specifically

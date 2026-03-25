@@ -20,20 +20,24 @@ def send_invite(request):
         receiver = User.objects.get(id=to_user_id)
         sender = request.user
         
-        target_users = {sender, receiver}
-        target_count = len(target_users)
-        rooms = ChatRoom.objects.annotate(u_count=Count('users')).filter(u_count=target_count)
-        rooms = rooms.filter(users=sender).filter(users=receiver)
-        
-        if rooms.exists():
-            room = rooms.first()
-        else:
-            room = ChatRoom.objects.create()
-            room.users.add(sender, receiver)
-            room.save()
-
         game_type = request.data.get('game_type', 'chess')
         board_id = request.data.get('board_id')
+        
+        # For non-friend game invites, we still want a room immediately 
+        # to coordinate the game signaling.
+        room = None
+        if game_type != 'friend':
+            target_users = {sender, receiver}
+            target_count = len(target_users)
+            rooms = ChatRoom.objects.annotate(u_count=Count('users')).filter(u_count=target_count)
+            rooms = rooms.filter(users=sender).filter(users=receiver)
+            
+            if rooms.exists():
+                room = rooms.first()
+            else:
+                room = ChatRoom.objects.create()
+                room.users.add(sender, receiver)
+                room.save()
 
         invite = GameInvite.objects.create(
             sender=sender,
@@ -44,12 +48,16 @@ def send_invite(request):
             board_id=board_id
         )
 
-        game_display_name = "Snake & Ladder" if game_type == 'snake' else "Chess"
+        if game_type == 'friend':
+            message = f"{sender.username} invited you to be friends!"
+        else:
+            game_display_name = "Snake & Ladder" if game_type == 'snake' else "Chess"
+            message = f"{sender.username} invited you to play {game_display_name}!"
         
         notify_user_background(
             user_id=receiver.id,
-            room_id=room.id,
-            message=f"{sender.username} invited you to play {game_display_name}!",
+            room_id=room.id if room else None,
+            message=message,
             sender_id=sender.id,
             sender_name=sender.username,
             msg_id=f"invite_{invite.id}",
@@ -64,7 +72,7 @@ def send_invite(request):
         return Response({
             "message": "Invitation sent",
             "invite_id": invite.id,
-            "room_id": room.id
+            "room_id": room.id if room else None
         }, status=201)
         
     except User.DoesNotExist:
@@ -80,15 +88,36 @@ def accept_invite(request):
     try:
         invite = GameInvite.objects.get(id=invite_id, receiver=request.user)
         invite.status = 'accepted'
+        
+        # If it was a friend request without a room, create one now
+        if not invite.room:
+            sender = invite.sender
+            receiver = invite.receiver
+            target_users = {sender, receiver}
+            target_count = len(target_users)
+            rooms = ChatRoom.objects.annotate(u_count=Count('users')).filter(u_count=target_count)
+            rooms = rooms.filter(users=sender).filter(users=receiver)
+            
+            if rooms.exists():
+                room = rooms.first()
+            else:
+                room = ChatRoom.objects.create()
+                room.users.add(sender, receiver)
+                room.save()
+            
+            invite.room = room
+        
         invite.save()
         
         GameMove.objects.filter(room_id=invite.room.id).delete()
         print(f"[GAME] History CLEARED for Room {invite.room.id} on acceptance")
         
+        notification_message = f"{request.user.username} accepted your friend request!" if invite.game_type == 'friend' else f"{request.user.username} accepted your invitation!"
+
         notify_user_background(
             user_id=invite.sender.id,
             room_id=invite.room.id,
-            message=f"{request.user.username} accepted your invitation!",
+            message=notification_message,
             sender_id=request.user.id,
             sender_name=request.user.username,
             msg_id=f"accept_{invite.id}",
@@ -188,7 +217,7 @@ def pending_invites(request):
             "receiver_id": invite.receiver.id,
             "receiver_name": invite.receiver.username,
             "other_name": other_user.username,
-            "room_id": invite.room.id,
+            "room_id": invite.room.id if invite.room else None,
             "game_type": invite.game_type,
             "board_id": invite.board_id,
             "created_at": invite.created_at.isoformat()
