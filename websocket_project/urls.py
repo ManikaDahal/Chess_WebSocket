@@ -12,8 +12,16 @@ from django.views.static import serve
 from chat.views import chat_history, get_or_create_private_room, list_user_rooms
 from game.views import send_invite, accept_invite, decline_invite, pending_invites, cancel_invite
 from media.views import upload_recording
-from media.video_views import list_videos, get_video_detail, stream_video, upload_video, delete_video, video_comments, toggle_reaction
-from media.voice_views import upload_voice_samples, chat_with_self, get_voice_status, delete_voice_profile
+try:
+    from media.video_views import list_videos, get_video_detail, stream_video, upload_video, delete_video, video_comments, toggle_reaction
+    from media.voice_views import upload_voice_samples, chat_with_self, get_voice_status, delete_voice_profile
+except ImportError:
+    print("Warning: Media views could not be imported due to missing dependencies.")
+    def placeholder_view(request, *args, **kwargs):
+        from django.http import HttpResponse 
+        return HttpResponse("This feature is temporarily unavailable.", status=503)
+    list_videos = get_video_detail = stream_video = upload_video = delete_video = video_comments = toggle_reaction = placeholder_view
+    upload_voice_samples = chat_with_self = get_voice_status = delete_voice_profile = placeholder_view
 from notifications.views import update_notification_status, get_notification_preferences, update_notification_preference
 
 def home(request):

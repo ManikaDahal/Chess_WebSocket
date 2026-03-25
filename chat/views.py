@@ -76,16 +76,18 @@ def get_or_create_private_room(request):
 def list_user_rooms(request):
     """Lists all chat rooms for the current user."""
     user = request.user
-    # Filter rooms where the user is a participant
-    rooms = ChatRoom.objects.filter(users=user).annotate(u_count=Count('users'))
+    # Filter rooms where the user is a participant, excluding global Room 1
+    rooms = ChatRoom.objects.filter(users=user).exclude(id=1).annotate(u_count=Count('users'))
     
     data = []
     for room in rooms:
-        # For a "Friend", we look for the other participant
-        other_user = room.users.exclude(id=user.id).first()
-        if other_user:
-            # Get the last message if any
-            last_msg = Message.objects.filter(room=room).order_by('-timestamp').first()
+        # Get all other participants in the room
+        other_users = room.users.exclude(id=user.id)
+        
+        # Get the last message if any
+        last_msg = Message.objects.filter(room=room).order_by('-timestamp').first()
+        
+        for other_user in other_users:
             data.append({
                 "room_id": room.id,
                 "other_user": {

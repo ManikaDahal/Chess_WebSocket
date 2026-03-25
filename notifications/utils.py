@@ -15,6 +15,7 @@ NOTIFICATION_TYPE_TO_CATEGORY = {
     "snake_invite":    "invitation",
     "invite_accepted": "invitation",
     "invite_declined": "invitation",
+    "friend_invite":   "invitation",
 }
 
 # Title template per notification_type. Use {sender_name} as placeholder.
@@ -25,6 +26,7 @@ NOTIFICATION_TITLE_TEMPLATES = {
     "snake_invite":    "Snake Game Invite from {sender_name}",
     "invite_accepted": "{sender_name} accepted your invite!",
     "invite_declined": "{sender_name} declined your invite.",
+    "friend_invite":   "Friend Request from {sender_name}",
 }
 
 

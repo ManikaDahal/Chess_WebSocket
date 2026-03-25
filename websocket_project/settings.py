@@ -6,17 +6,17 @@ import os
 import dj_database_url
 from pathlib import Path
 from datetime import timedelta
-import sentry_sdk
+# import sentry_sdk
 
 # Initialize Sentry
 SENTRY_DSN = os.environ.get("SENTRY_DSN", "")
-if SENTRY_DSN:
-    print("Sentry initialized with DSN.")
-    sentry_sdk.init(
-        dsn=SENTRY_DSN,
-        traces_sample_rate=1.0,
-        profiles_sample_rate=1.0,
-    )
+# if SENTRY_DSN:
+#     print("Sentry initialized with DSN.")
+#     sentry_sdk.init(
+#         dsn=SENTRY_DSN,
+#         traces_sample_rate=1.0,
+#         profiles_sample_rate=1.0,
+#     )
 
 # Build paths inside the project
 BASE_DIR = Path(__file__).resolve().parent.parent

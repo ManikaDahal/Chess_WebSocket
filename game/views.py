@@ -13,6 +13,7 @@ from django.db.models import Count
 @permission_classes([IsAuthenticated])
 def send_invite(request):
     """Sends a chess game invitation."""
+    print(f"DEBUG: send_invite called with data: {request.data}")
     to_user_id = request.data.get('to_user')
     User = apps.get_model('chess_python', 'CustomUser')
     
@@ -38,7 +39,8 @@ def send_invite(request):
                 room = ChatRoom.objects.create()
                 room.users.add(sender, receiver)
                 room.save()
-
+        
+        print(f"DEBUG: About to create GameInvite. Room: {room}")
         invite = GameInvite.objects.create(
             sender=sender,
             receiver=receiver,
@@ -78,6 +80,9 @@ def send_invite(request):
     except User.DoesNotExist:
         return Response({"error": "User not found"}, status=404)
     except Exception as e:
+        import traceback
+        print(f"DEBUG: Exception in send_invite: {e}")
+        print(traceback.format_exc())
         return Response({"error": str(e)}, status=500)
 
 @api_view(['POST'])
@@ -131,7 +136,7 @@ def accept_invite(request):
         
         return Response({
             "message": "Invitation accepted",
-            "room_id": invite.room.id
+            "room_id": invite.room.id if invite.room else None
         })
     except GameInvite.DoesNotExist:
         return Response({"error": "Invitation not found"}, status=404)
@@ -148,7 +153,7 @@ def decline_invite(request):
         
         notify_user_background(
             user_id=invite.sender.id,
-            room_id=invite.room.id,
+            room_id=invite.room.id if invite.room else None,
             message=f"{request.user.username} declined your invitation.",
             sender_id=request.user.id,
             sender_name=request.user.username,
@@ -175,7 +180,7 @@ def cancel_invite(request):
         # Note: If the receiver is offline, they'll just see the invite is gone next time they fetch
         notify_user_background(
             user_id=invite.receiver.id,
-            room_id=invite.room.id,
+            room_id=invite.room.id if invite.room else None,
             message=f"{request.user.username} cancelled the invitation.",
             sender_id=request.user.id,
             sender_name=request.user.username,
