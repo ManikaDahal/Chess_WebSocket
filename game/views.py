@@ -215,21 +215,30 @@ def cancel_invite(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def pending_invites(request):
-    """Lists pending invitations for the user (sent and received) from the last 24 hours."""
-    time_threshold = timezone.now() - timedelta(hours=24)
+    """Lists pending invitations for the user (sent and received) with different expiration thresholds."""
+    from django.db.models import Q
     
+    now = timezone.now()
+    friend_threshold = now - timedelta(days=7)
+    game_threshold = now - timedelta(minutes=10)
+    
+    # Base filter for both sent and received
+    # Either it's a 'friend' invite within 7 days, OR a game invite within 10 minutes.
+    time_filter = (Q(game_type='friend', created_at__gte=friend_threshold)) | \
+                  (~Q(game_type='friend'), Q(created_at__gte=game_threshold))
+
     # Received invites
     received_invites = GameInvite.objects.filter(
+        time_filter,
         receiver=request.user, 
-        status='pending',
-        created_at__gte=time_threshold
+        status='pending'
     ).order_by('-created_at')
     
     # Sent invites
     sent_invites = GameInvite.objects.filter(
+        time_filter,
         sender=request.user,
-        status='pending',
-        created_at__gte=time_threshold
+        status='pending'
     ).order_by('-created_at')
 
     def serialize_invite(invite, is_sent):
