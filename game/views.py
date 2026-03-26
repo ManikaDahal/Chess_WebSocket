@@ -114,6 +114,17 @@ def accept_invite(request):
         
         invite.save()
         
+        # Cleanup: if this is a friend request, also mark any other pending friend request 
+        # between these two users as accepted (or just something other than 'pending')
+        # to avoid duplicates in the "REQUESTS" list.
+        if invite.game_type == 'friend':
+            GameInvite.objects.filter(
+                sender=invite.receiver,
+                receiver=invite.sender,
+                game_type='friend',
+                status='pending'
+            ).update(status='accepted')
+
         GameMove.objects.filter(room_id=invite.room.id).delete()
         print(f"[GAME] History CLEARED for Room {invite.room.id} on acceptance")
         
