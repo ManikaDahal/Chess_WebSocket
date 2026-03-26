@@ -170,7 +170,11 @@ def decline_invite(request):
             sender_name=request.user.username,
             msg_id=f"decline_{invite.id}",
             notification_type="invite_declined",
-            category="invitation"
+            category="invitation",
+            extra_data={
+                "game_type": invite.game_type,
+                "board_id": invite.board_id
+            }
         )
         
         return Response({"message": "Invitation declined"})
@@ -197,7 +201,11 @@ def cancel_invite(request):
             sender_name=request.user.username,
             msg_id=f"cancel_{invite_id}",
             notification_type="invite_cancelled",
-            category="invitation"
+            category="invitation",
+            extra_data={
+                "game_type": invite.game_type,
+                "board_id": invite.board_id
+            }
         )
         
         return Response({"message": "Invitation cancelled"})
