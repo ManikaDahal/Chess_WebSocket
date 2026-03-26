@@ -222,10 +222,12 @@ def pending_invites(request):
     friend_threshold = now - timedelta(days=7)
     game_threshold = now - timedelta(minutes=10)
     
-    # Base filter for both sent and received
-    # Either it's a 'friend' invite within 7 days, OR a game invite within 10 minutes.
-    time_filter = (Q(game_type='friend', created_at__gte=friend_threshold)) | \
-                  (~Q(game_type='friend'), Q(created_at__gte=game_threshold))
+    # Base filter: 
+    # (game_type is 'friend' AND created within 7 days) 
+    # OR 
+    # (game_type is NOT 'friend' AND created within 10 minutes)
+    time_filter = Q(game_type='friend', created_at__gte=friend_threshold) | \
+                  (Q(created_at__gte=game_threshold) & ~Q(game_type='friend'))
 
     # Received invites
     received_invites = GameInvite.objects.filter(
