@@ -1,0 +1,23 @@
+name: Sync to Hugging Face Space
+
+on:
+  push:
+    branches: [resource-allocation-test]
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  sync-to-hub:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Push to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # Syncing to the correct Hugging Face Space: manikadahal/Websocket
+          git push -f https://manikadahal:$HF_TOKEN@huggingface.co/spaces/manikadahal/Websocket resource-allocation-test
