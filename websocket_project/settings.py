@@ -39,6 +39,7 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 CSRF_TRUSTED_ORIGINS = [
     'https://chess-websocket-dor6.onrender.com',
+    'https://*.hf.space',
 ]
 
 # Application definition

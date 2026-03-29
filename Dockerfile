@@ -8,6 +8,9 @@ ENV PYTHONUNBUFFERED 1
 # Set the working directory
 WORKDIR /app
 
+# Create a non-root user (Hugging Face default is 1000)
+RUN useradd -m -u 1000 user
+
 # Install system dependencies
 RUN apt-get update \
     && apt-get install -y --no-install-recommends gcc libpq-dev libsndfile1 \
@@ -19,7 +22,10 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the project files
-COPY . /app/
+COPY --chown=user:user . /app/
+
+# Switch to the non-root user
+USER user
 
 # Expose the port Hugging Face Spaces expects
 EXPOSE 7860

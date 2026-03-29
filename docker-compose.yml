@@ -1,0 +1,36 @@
+services:
+  websocket_web:
+    build: .
+    # Runs the Daphne server for WebSocket
+    command: daphne -b 0.0.0.0 -p 7860 websocket_project.asgi:application
+    volumes:
+      # Syncs your local files to the container
+      - .:/app
+    ports:
+      # Map host port 8001 to container port 7860 to avoid conflict with backend on 8000
+      - "8001:7860"
+    environment:
+      - DEBUG=0
+      # You can override environment variables here, default to .env file
+      
+    # --- RESOURCE ALLOCATION ---
+    deploy:
+      resources:
+        limits:
+          memory: 2G         # RAM: Maximum 2 GB Limit
+          cpus: '2.0'        # CPU: Max 2 cores
+        reservations:
+          memory: 512M       # Minimum guaranteed RAM
+          
+          # UNCOMMENT TO ALLOCATE GPU TO THE WEBSOCKET (For Voice AI)
+          # Requires Docker Desktop to be configured for NVIDIA GPU passthrough
+          # devices:
+          #   - driver: nvidia
+          #     count: all
+          #     capabilities: [gpu]
+
+# Note on SSD Storage limits (e.g. 20GB):
+# Docker Desktop on Windows manages SSD space at the VM level.
+# Instead of hard-coding 20GB into this compose file, you should go to:
+# Docker Desktop -> Settings -> Resources -> Virtual disk limit
+# and set the maximum disk image size to 20 GB.
