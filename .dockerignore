@@ -1,0 +1,18 @@
+.git
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.db.sqlite3
+.vscode
+.pytest_cache
+staticfiles
+# Ignore user-uploaded media (if any), but keep the 'media' Django app
+# If you have actual media uploads, use a more specific ignore like media/uploads/
+# media
+
+# Ignore local downloaded models to speed up build context upload. 
+# They will be downloaded during docker build.
+media/models/*.onnx
+media/models/*.bin

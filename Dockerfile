@@ -27,8 +27,11 @@ COPY --chown=user:user . /app/
 # Switch to the non-root user
 USER user
 
-# Expose the port Hugging Face Spaces expects
-EXPOSE 7860
+# Download the required models
 RUN python download_models.py
+
+# Expose the port
+EXPOSE 7860
+
 # Command to run the application using Daphne (ASGI) on port 7860
 CMD ["daphne", "-b", "0.0.0.0", "-p", "7860", "websocket_project.asgi:application"]
